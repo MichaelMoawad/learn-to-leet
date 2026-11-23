@@ -1,0 +1,146 @@
+/* Button3D (SPEC 5.2). Three stacked layers: shadow and edge fill the button, the front is the
+   only layer in flow and the only one that lifts. Shadow and front move; the edge stays put. */
+
+.btn3d {
+  --btn-face: var(--cyan);
+  --btn-edge: var(--cyan-deep);
+  --btn-text: var(--ink);
+  --btn-border: var(--ink);
+  --btn-h: 36px;
+  --btn-px: 16px;
+  --btn-fs: 14px;
+  --btn-ease-settle: cubic-bezier(0.3, 0.7, 0.4, 1);
+  --btn-ease-spring: cubic-bezier(0.3, 0.7, 0.4, 1.6);
+
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  vertical-align: middle;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.btn3d[data-variant='secondary'] {
+  --btn-face: var(--magenta);
+  --btn-edge: var(--magenta-deep);
+}
+.btn3d[data-variant='success'] {
+  --btn-face: var(--green);
+  --btn-edge: var(--green-deep);
+}
+.btn3d[data-variant='ghost'] {
+  --btn-face: var(--bg-2);
+  --btn-edge: var(--line);
+  --btn-text: var(--cyan);
+  --btn-border: var(--cyan);
+}
+
+.btn3d[data-size='sm'] {
+  --btn-h: 28px;
+  --btn-px: 10px;
+  --btn-fs: 12px;
+}
+.btn3d[data-size='lg'] {
+  --btn-h: 48px;
+  --btn-px: 24px;
+  --btn-fs: 16px;
+}
+
+.btn3d-shadow,
+.btn3d-edge {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.btn3d-shadow {
+  background: color-mix(in srgb, var(--ink) 60%, transparent);
+  transform: translateY(2px);
+  transition: transform 500ms var(--btn-ease-settle);
+  will-change: transform;
+}
+
+.btn3d-edge {
+  background: var(--btn-edge);
+  border: 2px solid var(--ink);
+}
+
+.btn3d-front {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-sizing: border-box;
+  height: var(--btn-h);
+  padding: 0 var(--btn-px);
+  border: 2px solid var(--btn-border);
+  background: var(--btn-face);
+  color: var(--btn-text);
+  font-family: var(--font-label);
+  font-size: var(--btn-fs);
+  line-height: 1;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+  transform: translateY(-4px);
+  transition: transform 500ms var(--btn-ease-settle);
+  will-change: transform;
+}
+
+@media (hover: hover) {
+  .btn3d:hover:not(:disabled):not([aria-disabled='true']) .btn3d-front {
+    transform: translateY(-6px);
+    transition: transform 260ms var(--btn-ease-spring);
+    filter: brightness(1.1);
+  }
+  .btn3d:hover:not(:disabled):not([aria-disabled='true']) .btn3d-shadow {
+    transform: translateY(4px);
+    transition: transform 260ms var(--btn-ease-spring);
+  }
+}
+
+/* After the hover block so a press wins over hover at equal specificity. */
+.btn3d:active:not(:disabled):not([aria-disabled='true']) .btn3d-front {
+  transform: translateY(-1px);
+  transition: transform 40ms linear;
+}
+.btn3d:active:not(:disabled):not([aria-disabled='true']) .btn3d-shadow {
+  transform: translateY(1px);
+  transition: transform 40ms linear;
+}
+
+.btn3d:disabled,
+.btn3d[aria-disabled='true'] {
+  cursor: not-allowed;
+}
+.btn3d:disabled .btn3d-front,
+.btn3d[aria-disabled='true'] .btn3d-front {
+  transform: translateY(-1px);
+  transition: none;
+  filter: saturate(0.25) brightness(0.8);
+}
+.btn3d:disabled .btn3d-shadow,
+.btn3d[aria-disabled='true'] .btn3d-shadow {
+  transform: translateY(1px);
+  transition: none;
+}
+
+.btn3d:focus-visible {
+  outline: 2px solid var(--magenta);
+  outline-offset: 4px;
+}
+
+html[data-motion='reduced'] .btn3d-front,
+html[data-motion='reduced'] .btn3d-shadow {
+  transition: none !important;
+}

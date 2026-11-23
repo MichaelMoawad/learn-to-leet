@@ -1,0 +1,84 @@
+/* Design tokens (SPEC 5.1). Exposed to Tailwind through @theme, so
+   `bg-bg-1`, `text-cyan`, `border-line`, `font-display` and friends all work,
+   and every value is also available as a plain CSS variable (e.g. var(--color-cyan)).
+   The short aliases (--bg-0, --cyan, ...) match the names used in the spec. */
+
+@theme {
+  /* Reset Tailwind's default palette so only project colours exist. */
+  --color-*: initial;
+
+  --color-bg-0: #070b1a;
+  --color-bg-1: #0b1228;
+  --color-bg-2: #121c3a;
+  --color-line: #1e2c56;
+  --color-line-bright: #33488a;
+  --color-text: #e6f0ff;
+  --color-text-dim: #8fa3c8;
+  --color-cyan: #22e0f0;
+  --color-cyan-deep: #0e8fa3;
+  --color-magenta: #ff4fd8;
+  --color-magenta-deep: #a3207f;
+  --color-green: #4dff9a;
+  --color-green-deep: #1f9a57;
+  --color-red: #ff5470;
+  --color-red-deep: #a32840;
+  --color-amber: #ffd166;
+  --color-amber-deep: #a8842c;
+  --color-violet: #9b8cff;
+  --color-violet-deep: #5546b8;
+  --color-ink: #050814;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  --font-*: initial;
+  --font-display: 'Pixelify Sans', ui-monospace, monospace;
+  --font-label: 'Silkscreen', ui-monospace, monospace;
+  --font-body: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: var(--font-body);
+
+  /* Type scale: 12, 14, 16 (body), 20, 28, 40, 56. */
+  --text-*: initial;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 20px;
+  --text-xl: 28px;
+  --text-2xl: 40px;
+  --text-3xl: 56px;
+  --text-hero-mobile: 36px;
+
+  --leading-body: 1.6;
+  --tracking-label: 0.12em;
+
+  /* 4px spacing grid: p-1 = 4px, p-2 = 8px, p-3 = 12px, p-4 = 16px, p-6 = 24px ... */
+  --spacing: 4px;
+
+  /* Breakpoints: 640 and 1024. */
+  --breakpoint-*: initial;
+  --breakpoint-sm: 640px;
+  --breakpoint-lg: 1024px;
+}
+
+:root {
+  --bg-0: var(--color-bg-0);
+  --bg-1: var(--color-bg-1);
+  --bg-2: var(--color-bg-2);
+  --line: var(--color-line);
+  --line-bright: var(--color-line-bright);
+  --text: var(--color-text);
+  --text-dim: var(--color-text-dim);
+  --cyan: var(--color-cyan);
+  --cyan-deep: var(--color-cyan-deep);
+  --magenta: var(--color-magenta);
+  --magenta-deep: var(--color-magenta-deep);
+  --green: var(--color-green);
+  --green-deep: var(--color-green-deep);
+  --red: var(--color-red);
+  --red-deep: var(--color-red-deep);
+  --amber: var(--color-amber);
+  --amber-deep: var(--color-amber-deep);
+  --violet: var(--color-violet);
+  --violet-deep: var(--color-violet-deep);
+  --ink: var(--color-ink);
+}

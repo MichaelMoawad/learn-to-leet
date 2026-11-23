@@ -1,0 +1,141 @@
+@import 'tailwindcss';
+@import './tokens.css';
+@import './button3d.css';
+
+@import '@fontsource/pixelify-sans/600.css';
+@import '@fontsource/pixelify-sans/700.css';
+@import '@fontsource/silkscreen/400.css';
+@import '@fontsource/space-grotesk/400.css';
+@import '@fontsource/space-grotesk/500.css';
+@import '@fontsource/space-grotesk/700.css';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/700.css';
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html {
+    background-color: var(--bg-0);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    position: relative;
+    min-height: 100dvh;
+    margin: 0;
+    background-color: var(--bg-0);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    line-height: var(--leading-body);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* 32px grid of 1px lines in --line at 35%, fading out toward the bottom. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image:
+      linear-gradient(to right, color-mix(in srgb, var(--line) 35%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in srgb, var(--line) 35%, transparent) 1px, transparent 1px);
+    background-size: 32px 32px;
+    mask-image: linear-gradient(to bottom, #000 0%, #000 35%, transparent 100%);
+  }
+
+  code,
+  kbd,
+  pre,
+  samp {
+    font-family: var(--font-mono);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--magenta);
+    outline-offset: 4px;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--magenta) 40%, transparent);
+    color: var(--text);
+  }
+}
+
+/* Panels: notch each corner by 4px. */
+@utility pixel-corners {
+  clip-path: polygon(
+    0 4px, 4px 4px, 4px 0,
+    calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px,
+    100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%,
+    4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px)
+  );
+}
+
+/* Silkscreen label style: uppercase, tracked, cyan. */
+@utility label {
+  font-family: var(--font-label);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--cyan);
+}
+
+/* Hero title glow: cyan at 55%. */
+@utility glow-cyan {
+  text-shadow: 0 0 16px color-mix(in srgb, var(--cyan) 55%, transparent);
+}
+
+html[data-motion='reduced'] .glow-cyan {
+  text-shadow: none;
+}
+
+/* Step text and problem statement Markdown (ui/Markdown.tsx). */
+.md > * + * {
+  margin-top: 12px;
+}
+.md strong {
+  font-weight: 700;
+  color: var(--text);
+}
+.md em {
+  font-style: italic;
+}
+.md code {
+  padding: 1px 5px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  color: var(--cyan);
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+.md ul {
+  padding-left: 20px;
+  list-style: square;
+}
+.md li + li {
+  margin-top: 4px;
+}
+.md li::marker {
+  color: var(--cyan);
+}
+.md a {
+  color: var(--cyan);
+  text-decoration: underline;
+}
+
+/* Safe-area padding for the fixed stepper bar on phones. */
+.pb-safe {
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+}
+
+/* Reduced motion (SPEC 5.1): nothing moves, glows or pulses. */
+html[data-motion='reduced'] *,
+html[data-motion='reduced'] *::before,
+html[data-motion='reduced'] *::after {
+  transition: none !important;
+  animation: none !important;
+  scroll-behavior: auto !important;
+}
