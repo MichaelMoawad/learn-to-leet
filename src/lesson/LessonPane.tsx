@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { Lesson } from '../content/schema';
 import { Sandbox } from '../sandbox/Sandbox';
 import { Visual } from '../visual/Visual';
@@ -30,7 +30,7 @@ export function LessonPane({
 }) {
   const [codeMounted, setCodeMounted] = useState(tab === 'code');
   if (tab === 'code' && !codeMounted) setCodeMounted(true);
-  const scenes = scenesForLesson(lesson);
+  const scenes = useMemo(() => scenesForLesson(lesson), [lesson]);
 
   return (
     <section aria-label="Lesson pane" className="flex min-w-0 flex-col gap-3">
@@ -40,7 +40,7 @@ export function LessonPane({
         id={tabPanelId(PREFIX, 'visual')}
         aria-labelledby={tabId(PREFIX, 'visual')}
         hidden={tab !== 'visual'}
-        className="max-h-[46vh] overflow-auto lg:max-h-none"
+        className="h-[46vh] min-h-[260px] overflow-hidden lg:h-[calc(100dvh-212px)] lg:min-h-[420px]"
       >
         <Visual scenes={scenes} index={index} />
       </div>

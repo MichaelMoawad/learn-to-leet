@@ -1,0 +1,19 @@
+/* Idle loops for the visual engine (SPEC 3.0 item 3). Paused with the scene, and switched off
+   entirely by the global reduced-motion rule in global.css. */
+@keyframes ltl-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.ltl-bob {
+  animation: ltl-bob 2.4s ease-in-out infinite;
+}
+
+.ltl-scene[data-paused] .ltl-anim {
+  animation-play-state: paused;
+}

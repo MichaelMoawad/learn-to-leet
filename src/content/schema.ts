@@ -69,6 +69,21 @@ export interface Scene {
   structures: Structure[]; // drawn top to bottom in this order
   vars?: Var[];            // variable chips shown above the drawing
   caption?: string;        // one line under the drawing
+  /**
+   * Optional token flows the step-to-step diff cannot express (SPEC 3.0 item 3). `from` and `to`
+   * are element keys (`structureId/elementId`, e.g. 'nums/2' or 'seen/6'). With `loop` true (the
+   * default) small glowing tokens keep flowing from one element to the other while the scene is
+   * idle. With `loop: false` one token flies once when the step is entered (forward or Replay).
+   * Flows whose endpoints are missing from the scene are ignored.
+   */
+  flows?: { from: string; to: string; tone?: Tone; loop?: boolean }[];
+  /**
+   * Optional override for Leet standing in the scene. By default Leet stands beside the first
+   * structure's first pointer target (else the first `active` element, else the first structure),
+   * idles, and cheers when any var has tone `good`. `pose` forces a pose, `at` an element key to
+   * stand beside, and `hidden` removes Leet from this step.
+   */
+  leet?: { pose?: LeetPose; at?: string; hidden?: boolean };
 }
 export interface Var { name: string; value: string | number; tone?: Tone }
 

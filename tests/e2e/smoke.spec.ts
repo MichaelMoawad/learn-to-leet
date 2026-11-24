@@ -100,3 +100,85 @@ test('Two Sum: the Problem button shows on other steps, not on the challenge', a
   await expect(problem).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByTestId('sandbox').getByRole('region', { name: 'Problem' })).toBeVisible();
 });
+
+// ---------- visual engine (phase 3) ----------
+
+/** Blocks each Two Sum step shows once its choreography has landed. */
+function expectedBlocks(step: number): number {
+  const s = twoSum.steps[step - 1];
+  const scene = s.kind === 'concept' ? s.scene : null;
+  if (!scene) return expectedBlocks(step - 1);
+  return scene.structures.reduce((n, st) => {
+    if (st.kind === 'array') return n + st.cells.length;
+    if (st.kind === 'hashmap') return n + st.entries.reduce((m, e) => m + (e.value === undefined ? 1 : 2), 0);
+    return n;
+  }, 0);
+}
+
+async function checkVisualStep(page: Page, n: number, viewBox?: string | null) {
+  const visual = page.getByRole('tabpanel', { name: 'Visual' });
+  if (n === CHALLENGE) {
+    await page.getByRole('tab', { name: 'Visual', exact: true }).click();
+  }
+  const svg = visual.getByTestId('scene-svg');
+  await expect(svg).toBeVisible();
+  await expect(visual.locator('[data-block]')).toHaveCount(expectedBlocks(n));
+  await expect(visual.getByTestId('visual')).toHaveAttribute('data-step', String(n));
+  const vb = await svg.getAttribute('viewBox');
+  if (viewBox !== undefined) expect(vb).toBe(viewBox);
+  return vb;
+}
+
+test('Visual: Two Sum plays forward and back with a steady view', async ({ page }) => {
+  await page.goto('/learn/two-sum');
+  const viewBox = await checkVisualStep(page, 1);
+  for (let n = 2; n <= STEPS; n++) {
+    await page.getByRole('button', { name: 'Next step' }).click();
+    await checkVisualStep(page, n, viewBox);
+  }
+  for (let n = STEPS - 1; n >= 1; n--) {
+    await page.getByRole('button', { name: 'Previous step' }).click();
+    await checkVisualStep(page, n, viewBox);
+  }
+});
+
+test('Visual: step 4 flies a token into the map, then Replay and Pause work', async ({ page }) => {
+  await page.goto('/learn/two-sum?step=3');
+  const visual = page.getByTestId('visual');
+  await expect(visual.locator('[data-block]')).toHaveCount(5);
+  await page.getByRole('button', { name: 'Next step' }).click();
+  // The plan flies 6 into the new key and index 0 into its value; the blocks land after.
+  await expect(visual).toHaveAttribute('data-flights', 'seen/6 seen/6#value');
+  await expect(visual.locator('[data-block]')).toHaveCount(7);
+  await expect(visual.locator('[data-flight]')).toHaveCount(0);
+
+  // Replay restarts from step 3's state; pausing straight away freezes it before the tokens land.
+  await page.getByRole('button', { name: 'Replay step' }).click();
+  await page.getByRole('button', { name: 'Pause scene' }).click();
+  await expect(visual).toHaveAttribute('data-paused', 'true');
+  await page.waitForTimeout(1500);
+  await expect(visual.locator('[data-block]')).toHaveCount(5);
+  await expect(visual).toHaveAttribute('data-playing', 'true');
+  await page.getByRole('button', { name: 'Play scene' }).click();
+  await expect(visual.locator('[data-block]')).toHaveCount(7);
+  await expect(visual).not.toHaveAttribute('data-playing', 'true');
+  await expect(visual.locator('[data-flight]')).toHaveCount(0);
+});
+
+test.describe('Visual: reduced motion', () => {
+  test.use({ reducedMotion: 'reduce' });
+
+  test('steps swap to their end state with no choreography or idle loops', async ({ page }) => {
+    await page.goto('/learn/two-sum?step=3');
+    const visual = page.getByTestId('visual');
+    await expect(visual.getByTestId('scene-svg')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Replay step' })).toHaveCount(0);
+    for (const n of [4, 5, 6, 7]) {
+      await page.getByRole('button', { name: 'Next step' }).click();
+      await expect(visual).toHaveAttribute('data-step', String(n));
+      expect(await visual.locator('[data-flight]').count()).toBe(0);
+      await expect(visual.locator('[data-block]')).toHaveCount(expectedBlocks(n), { timeout: 1000 });
+      expect(await visual.locator('.ltl-bob, .ltl-flow').count()).toBe(0);
+    }
+  });
+});

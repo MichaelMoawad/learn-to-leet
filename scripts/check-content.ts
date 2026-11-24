@@ -3,7 +3,8 @@
 // both reference solutions passing while both starters compile and fail. Python runs through the
 // `pyodide` npm package, JS / TS through Sucrase, both through the same harness as the browser.
 // Lesson files are loaded from disk because import.meta.glob only exists inside Vite.
-// The 480 by 480 scene-bounds check arrives with visual/compose.ts in phase 3.
+// Scene bounds: every lesson's composed scenes (Leet included) must fit 480 by 480 px at scale 1
+// (SPEC 3.1 rule 4), measured with the engine's own visual/compose.ts.
 import { readdir } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
@@ -13,6 +14,8 @@ import type { FromWorker, RunRequest, TestEndMessage } from '../src/sandbox/prot
 import { compareValues, judge } from '../src/sandbox/compare.ts';
 import { runJs } from '../src/sandbox/harness/js.ts';
 import { runPython, type PyRuntime } from '../src/sandbox/harness/python.ts';
+import { composeLesson } from '../src/visual/compose.ts';
+import { scenesForLesson } from '../src/lesson/scenes.ts';
 
 const lessonsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src/content/lessons');
 
@@ -160,6 +163,34 @@ function checkScene(scene: Scene, where: string, out: string[]): void {
   if (scene.structures[0]?.beside) out.push(`${where}: the first structure cannot be "beside"`);
 }
 
+const SCENE_MAX = 480;
+
+/** The whole lesson's scenes, composed by the visual engine, fit 480 by 480; flow and Leet keys exist. */
+function checkSceneBounds(lesson: Lesson, out: string[]): void {
+  const scenes = scenesForLesson(lesson);
+  let composed;
+  try {
+    composed = composeLesson(scenes);
+  } catch (e) {
+    out.push(`scenes: compose failed: ${e instanceof Error ? e.message : String(e)}`);
+    return;
+  }
+  const { w, h } = composed.bounds;
+  if (w > SCENE_MAX || h > SCENE_MAX) {
+    out.push(`scenes: composed bounds ${Math.ceil(w)} by ${Math.ceil(h)} px exceed ${SCENE_MAX} by ${SCENE_MAX} (try \`beside\` or fewer cells)`);
+  }
+  lesson.steps.forEach((step, i) => {
+    const scene = 'scene' in step ? step.scene : undefined;
+    if (!scene) return;
+    const c = composed.scenes[i];
+    const keys = new Set([...c.blocks.map((b) => b.key), ...c.markers.map((m) => m.key)]);
+    for (const f of scene.flows ?? []) {
+      for (const k of [f.from, f.to]) if (!keys.has(k)) out.push(`step ${i + 1}: flow key "${k}" is not an element in the scene`);
+    }
+    if (scene.leet?.at && !keys.has(scene.leet.at)) out.push(`step ${i + 1}: leet.at "${scene.leet.at}" is not an element in the scene`);
+  });
+}
+
 function checkStep(step: Step, i: number, out: string[]): void {
   const where = `step ${i + 1}`;
   if (words(step.title) > 6) out.push(`${where}: title "${step.title}" has more than 6 words`);
@@ -238,6 +269,7 @@ function checkLesson(lesson: Lesson, slug: string): string[] {
   const leets = steps.filter((s) => s.leet).length;
   if (leets > 4) out.push(`Leet speaks on ${leets} steps, max 4`);
   steps.forEach((s, i) => checkStep(s, i, out));
+  checkSceneBounds(lesson, out);
   checkChallenge(lesson.challenge, lesson, out);
 
   // Copy rules.
