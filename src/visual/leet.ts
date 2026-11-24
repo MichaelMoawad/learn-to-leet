@@ -75,10 +75,43 @@ export function placeLeet(scene: Scene, c: Parts): LeetPlacement | null {
   return fallback;
 }
 
-/** Pose for a scene: the author's override, else cheer when any var is `good`, else idle. */
-export function leetPose(scene: Scene | undefined): LeetPose {
+/** Same picture: structures and vars match (captions and Leet overrides are ignored). */
+const sameScene = (a: Scene, b: Scene) => a === b || JSON.stringify([a.structures, a.vars ?? []]) === JSON.stringify([b.structures, b.vars ?? []]);
+
+/** True when a var or any element of a structure (cell, item, entry, node) has tone `good`. */
+export function hasGood(scene: Scene): boolean {
+  if (scene.vars?.some((v) => v.tone === 'good')) return true;
+  const good = (c: unknown) => typeof c === 'object' && c !== null && (c as { tone?: string }).tone === 'good';
+  return scene.structures.some((s) => {
+    switch (s.kind) {
+      case 'array':
+        return s.cells.some(good);
+      case 'stack':
+      case 'queue':
+        return s.items.some(good);
+      case 'grid':
+        return s.rows.some((r) => r.some(good));
+      case 'hashmap':
+        return s.entries.some(good);
+      case 'linkedList':
+      case 'tree':
+      case 'graph':
+        return s.nodes.some(good);
+    }
+  });
+}
+
+/**
+ * Pose for step `index` of a lesson: the author's `scene.leet.pose` always wins. Otherwise Leet
+ * cheers only on the last distinct scene (the final scene and any trailing steps repeating it),
+ * and only when that scene has a `good` var or element. Everything else idles.
+ */
+export function leetPose(scenes: Scene[], index: number): LeetPose {
+  const scene = scenes[index];
   if (!scene) return 'idle';
   if (scene.leet?.pose) return scene.leet.pose;
-  if (scene.vars?.some((v) => v.tone === 'good')) return 'cheer';
-  return 'idle';
+  const last = scenes[scenes.length - 1];
+  for (let i = scenes.length - 1; i > index; i--) if (!sameScene(scenes[i], last)) return 'idle';
+  if (!sameScene(scene, last)) return 'idle';
+  return hasGood(last) ? 'cheer' : 'idle';
 }

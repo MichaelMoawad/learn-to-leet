@@ -3,8 +3,8 @@
 // notes are small floor text.
 import { motion } from 'motion/react';
 import { project } from '../iso';
-import { INDEX_FONT, NOTE_FONT, PILL_FONT, PILL_H, titleBox } from '../metrics';
-import { C } from '../tones';
+import { INDEX_FONT, NOTE_FONT, PILL_FONT, PILL_H, pillWidth, titleBox } from '../metrics';
+import { C, INDEX_IDLE } from '../tones';
 import type { CLabel } from '../types';
 import { COLOR, NONE, SPRING, tr, useSceneMotion } from './context';
 
@@ -56,6 +56,18 @@ export function Label({ l, flash, hot }: { l: CLabel; flash?: string; hot?: stri
     );
   }
 
+  if (l.kind === 'tag') {
+    const w = pillWidth(l.text, k);
+    return (
+      <motion.g data-label={l.key} {...common}>
+        <rect x={-w / 2} y={-PILL_H / 2} width={w} height={PILL_H} rx={PILL_H / 2} fill={C.bg1} stroke={C.lineBright} strokeWidth={2} />
+        <text x={0} y={0} textAnchor="middle" dominantBaseline="central" fontFamily="var(--font-mono)" fontWeight={700} fontSize={PILL_FONT * k} fill={C.text}>
+          {l.text}
+        </text>
+      </motion.g>
+    );
+  }
+
   const isIndex = l.kind === 'index';
   return (
     <motion.g data-label={l.key} {...common}>
@@ -68,7 +80,7 @@ export function Label({ l, flash, hot }: { l: CLabel; flash?: string; hot?: stri
         fontSize={(isIndex ? INDEX_FONT : NOTE_FONT) * k}
         letterSpacing={isIndex ? '0.06em' : undefined}
         initial={false}
-        animate={{ fill: hot ?? C.textDim }}
+        animate={{ fill: hot ?? (isIndex ? INDEX_IDLE : C.textDim) }}
         transition={tr(instant, COLOR)}
       >
         {l.text}

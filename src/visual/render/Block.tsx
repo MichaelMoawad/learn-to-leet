@@ -1,11 +1,12 @@
 // A block (SPEC 3.1, 3.3, 3.0 item 2): a chunky slab with a lit top face, a 1px highlight along
-// its back edges, a mid left face, a deep right face and a thick outline. Its soft floor shadow is
+// its back edges, a mid left face, a deep right face and a thick outline. Its value is upright
+// text on the top face (shifted by `textDx`) or, for stack items, centred on the right face. Its soft floor shadow is
 // drawn separately (BlockShadow) so every shadow sits under every block.
 import { motion } from 'motion/react';
 import { useEffect, useRef } from 'react';
 import { project, ZU } from '../iso';
 import { INSET_X, INSET_Y, valueFont } from '../metrics';
-import { FACES, mix, valueFaces } from '../tones';
+import { blockFaces, mix, valueFaces } from '../tones';
 import type { CBlock } from '../types';
 import { COLOR, HEIGHT, NONE, SPRING, tr, useSceneMotion } from './context';
 
@@ -33,7 +34,7 @@ export function Block({ b, enterDelay = 0, ring }: { b: CBlock; enterDelay?: num
   const { instant, reduced, k } = useSceneMotion();
   const [ox, oy] = project(b.x, b.y);
   const isValue = b.role === 'value';
-  const f = isValue ? valueFaces(FACES[b.tone], b.tone) : FACES[b.tone];
+  const f = isValue ? valueFaces(blockFaces(b.tone), b.tone) : blockFaces(b.tone, b.skind);
   const p = facePaths(b.h);
   const u = b.h * ZU;
   const mounted = useRef(false);
@@ -43,6 +44,11 @@ export function Block({ b, enterDelay = 0, ring }: { b: CBlock; enterDelay?: num
   const prevText = useRef(b.text);
   const pop = prevText.current !== b.text && !instant;
   prevText.current = b.text;
+  // Where the value was last drawn, so a popped (remounted) value starts there and still tweens.
+  const dx = b.textDx ?? 0;
+  const prevPos = useRef({ x: dx, y: 16 - u });
+  const from = prevPos.current;
+  prevPos.current = { x: dx, y: 16 - u };
 
   const move = tr(instant, SPRING);
   const color = tr(instant, COLOR);
@@ -75,10 +81,9 @@ export function Block({ b, enterDelay = 0, ring }: { b: CBlock; enterDelay?: num
           {b.textOn === 'top' ? (
             <motion.text
               key={pop ? `${b.text}-pop` : b.text}
-              initial={pop ? { scale: 1 } : false}
-              animate={{ y: 16 - u, scale: pop ? [1, 1.15, 1] : 1, fill: f.text }}
-              transition={{ y: height, scale: { duration: 0.18 }, fill: color }}
-              x={0}
+              initial={pop ? { scale: 1, x: from.x, y: from.y } : false}
+              animate={{ x: dx, y: 16 - u, scale: pop ? [1, 1.15, 1] : 1, fill: f.text }}
+              transition={{ x: height, y: height, scale: { duration: 0.18 }, fill: color }}
               textAnchor="middle"
               dominantBaseline="central"
               fontFamily="var(--font-mono)"
@@ -89,20 +94,20 @@ export function Block({ b, enterDelay = 0, ring }: { b: CBlock; enterDelay?: num
               {b.text}
             </motion.text>
           ) : (
-            <g transform={`translate(${HW / 2} ${(B[1] + R[1]) / 2 - u / 2}) skewY(-26.565)`}>
-              <motion.text
-                initial={false}
-                animate={{ fill: f.text }}
-                transition={color}
-                textAnchor="middle"
-                dominantBaseline="central"
-                fontFamily="var(--font-mono)"
-                fontWeight={700}
-                fontSize={(b.text.length >= 4 ? 11 : 14) * k}
-              >
-                {b.text}
-              </motion.text>
-            </g>
+            // Side text (stack items): upright, centred on the right face, same font as top values.
+            <motion.text
+              initial={false}
+              animate={{ y: (B[1] + R[1]) / 2 - u / 2, fill: f.text }}
+              transition={{ y: height, fill: color }}
+              x={HW / 2}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontFamily="var(--font-mono)"
+              fontWeight={700}
+              fontSize={valueFont(b.text) * k}
+            >
+              {b.text}
+            </motion.text>
           )}
         </g>
       </motion.g>
@@ -119,7 +124,7 @@ export function BlockShadow({ b, enterDelay = 0 }: { b: CBlock; enterDelay?: num
   return (
     <motion.g
       initial={{ x: ox, y: oy, opacity: 0 }}
-      animate={{ x: ox, y: oy, opacity: FACES[b.tone].opacity * (lifted ? 0.6 : 1) }}
+      animate={{ x: ox, y: oy, opacity: blockFaces(b.tone, b.skind).opacity * (lifted ? 0.6 : 1) }}
       exit={{ opacity: 0, transition: instant ? NONE : { duration: 0.15 } }}
       transition={{ x: move, y: move, opacity: instant ? NONE : { duration: 0.25, delay: enterDelay / 1000 } }}
     >

@@ -53,7 +53,8 @@ export function VarTile({ v, narrow, reduced }: { v: Var; narrow: boolean; reduc
         <Icon name={varIcon(v.name)} scale={narrow ? 1 : 2} />
       </span>
       <span className="relative flex min-w-0 flex-col leading-none">
-        <span className="font-label tracking-[0.12em] text-text-dim uppercase" style={{ fontSize: 11 }}>
+        {/* Var names are code identifiers: shown exactly as written, in the mono font. */}
+        <span className="font-mono text-text-dim" style={{ fontSize: 11 }}>
           {v.name}
         </span>
         <span className="font-mono font-bold whitespace-nowrap" style={{ fontSize: narrow ? 16 : 22, color: valueColor, marginTop: narrow ? 2 : 4 }}>

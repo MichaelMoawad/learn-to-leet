@@ -21,8 +21,16 @@ describe('grid layout', () => {
     expect(r.blocks.map((b) => [b.key, b.x, b.y, b.h])).toEqual([
       ['0,0', 0, 0, 1],
       ['0,1', 1, 0, 0],
-      ['x', 0, 1, 0.25],
+      ['x', 0, 1, 1],
       ['1,1', 1, 1, 2],
+    ]);
+  });
+
+  it('never lifts active cells or flattens muted ones (tones only change colour)', () => {
+    const r = layoutGrid({ kind: 'grid', id: 'g', rows: [[{ value: 1, tone: 'active' }, { value: 2, tone: 'muted', h: 1.5 }]] });
+    expect(r.blocks.map((b) => [b.tone, b.z, b.h])).toEqual([
+      ['active', 0, 1],
+      ['muted', 0, 1.5],
     ]);
   });
 

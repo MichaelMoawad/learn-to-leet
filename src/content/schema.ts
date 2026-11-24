@@ -80,7 +80,8 @@ export interface Scene {
   /**
    * Optional override for Leet standing in the scene. By default Leet stands beside the first
    * structure's first pointer target (else the first `active` element, else the first structure),
-   * idles, and cheers when any var has tone `good`. `pose` forces a pose, `at` an element key to
+   * idles, and cheers on the lesson's final scene (and trailing steps repeating it) when it has a
+   * `good` var or element. `pose` forces a pose, `at` an element key to
    * stand beside, and `hidden` removes Leet from this step.
    */
   leet?: { pose?: LeetPose; at?: string; hidden?: boolean };

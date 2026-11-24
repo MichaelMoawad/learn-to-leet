@@ -4,7 +4,8 @@ import { LIFT } from '../../src/visual/iso';
 import { layoutStructure } from '../../src/visual/layout';
 import { layoutArray } from '../../src/visual/layout/array';
 import { ENTRY_PITCH, layoutHashmap, VALUE_H, VALUE_Y } from '../../src/visual/layout/hashmap';
-import { DEFAULT_H } from '../../src/visual/layout/common';
+import { DEFAULT_H, TEXT_LEFT } from '../../src/visual/layout/common';
+import { blockRect, labelRect, overlaps } from '../../src/visual/metrics';
 import { layoutQueue } from '../../src/visual/layout/queue';
 import { ITEM_H, layoutStack } from '../../src/visual/layout/stack';
 
@@ -49,6 +50,31 @@ describe('array layout', () => {
     expect(z.x).toBeLessThan(1);
     expect(z.x + z.w).toBeGreaterThan(3);
     expect(z.x + z.w).toBeLessThan(3.5);
+  });
+
+  it('moves a value into the left half when the next cell is at least 0.75 units taller', () => {
+    const r = layoutArray({
+      kind: 'array',
+      id: 'a',
+      cells: [{ value: 1, tone: 'muted' }, { value: 2, tone: 'active' }, 3, { value: 4, h: 2.2 }, { value: 5, h: 2.5 }, 6],
+    });
+    // muted (top 0.25) behind active (top 2): shift. active (2) behind idle (1.5): centred.
+    // idle 1.5 behind 2.2 (+0.7): centred. 2.2 behind 2.5: centred. Last cell: centred.
+    expect(r.blocks.map((b) => b.textDx ?? 0)).toEqual([TEXT_LEFT, 0, 0, 0, 0, 0]);
+    const r2 = layoutArray({ kind: 'array', id: 'a', cells: [1, { value: 2, h: 2.25 }] });
+    expect(r2.blocks.map((b) => b.textDx ?? 0)).toEqual([TEXT_LEFT, 0]);
+  });
+
+  it('applies the same rule to queues', () => {
+    const r = layoutQueue({ kind: 'queue', id: 'q', items: [{ value: 'A', tone: 'muted' }, { value: 'B', tone: 'active' }] });
+    expect(r.blocks.map((b) => b.textDx ?? 0)).toEqual([TEXT_LEFT, 0]);
+  });
+
+  it('anchors every bar value in the left half, whatever its neighbours', () => {
+    const r = layoutArray({ kind: 'array', id: 'a', variant: 'bars', cells: [8, 1, 4] });
+    expect(r.blocks.map((b) => b.textDx)).toEqual([TEXT_LEFT, TEXT_LEFT, TEXT_LEFT]);
+    expect(TEXT_LEFT).toBeLessThanOrEqual(-12);
+    expect(TEXT_LEFT).toBeGreaterThanOrEqual(-14);
   });
 
   it('sets bar heights from values: 0.75 + 3.25 * v / max', () => {
@@ -99,7 +125,7 @@ describe('hashmap layout', () => {
 });
 
 describe('stack layout', () => {
-  it('piles items on one tile along z with values on the side and a top marker', () => {
+  it('piles items on one tile along z with values on the (right) side and a top marker', () => {
     const r = layoutStack({ kind: 'stack', id: 'st', items: ['(', { id: 'b', value: '[' }] });
     expect(r.blocks.map((b) => [b.key, b.x, b.y, b.z, b.h, b.textOn])).toEqual([
       ['0', 0, 0, 0, ITEM_H, 'side'],
@@ -123,6 +149,17 @@ describe('queue layout', () => {
     const back = r.labels.find((l) => l.text === 'back')!;
     expect(front.x).toBeLessThan(0);
     expect(back.x).toBeGreaterThan(2);
+    expect([front.kind, back.kind]).toEqual(['tag', 'tag']);
+  });
+
+  it('keeps the front and back pills at least 6px clear of every block, one item included', () => {
+    const rows = [[{ id: 'a', value: 'A', tone: 'active' as const }], [{ id: 'a', value: 'A' }, { id: 'b', value: 'B', tone: 'active' as const }, { id: 'c', value: 'C' }]];
+    for (const items of rows) {
+      const r = layoutQueue({ kind: 'queue', id: 'q', items });
+      for (const l of r.labels.filter((x) => x.kind === 'tag')) {
+        for (const b of r.blocks) expect(overlaps(labelRect(l), blockRect(b), 6)).toBe(false);
+      }
+    }
   });
 });
 

@@ -94,6 +94,24 @@ export const FACES: Record<Tone, Faces> = {
   muted: { ...IDLE, opacity: 0.45 },
 };
 
+/**
+ * Grid cells keep their height when muted (layout/common toneBlock), so a translucent block would
+ * show the cells behind it through its faces. Muted grid cells are opaque and dimmed instead.
+ */
+export const MUTED_SOLID: Faces = {
+  top: mix(IDLE_FACE.top, C.bg0, 0.5),
+  left: mix(IDLE_FACE.left, C.bg0, 0.5),
+  right: mix(IDLE_FACE.right, C.bg0, 0.5),
+  outline: mix(IDLE_FACE.rim, C.bg0, 0.55),
+  text: C.textDim,
+  hi: mix(IDLE_FACE.rim, C.bg0, 0.4),
+  accent: C.lineBright,
+  opacity: 1,
+};
+
+/** Faces for a block: its tone's, except muted grid cells (opaque and dimmed). */
+export const blockFaces = (tone: Tone, kind?: string): Faces => (tone === 'muted' && kind === 'grid' ? MUTED_SOLID : FACES[tone]);
+
 /** Accent colour for a tone (markers, rings, HUD bars, tokens). Idle and muted use cyan for markers. */
 export const accent = (tone: Tone | undefined): string => {
   if (!tone || tone === 'idle' || tone === 'muted') return C.lineBright;
@@ -109,3 +127,17 @@ export const TONE_LABELS: [Tone, string][] = [
   ['visited', 'done'],
   ['muted', 'ruled out'],
 ];
+
+/**
+ * Index label colour under a block of a tone. Idle sits a step above dim text so it stays legible
+ * on phones, visited is a violet clearly lighter than the visited block face, other tones use their
+ * accent.
+ */
+export const INDEX_IDLE = mix(C.textDim, C.text, 0.3);
+export const INDEX_VISITED = mix(C.violet, '#ffffff', 0.4);
+export function indexColor(tone: Tone): string {
+  if (tone === 'idle') return INDEX_IDLE;
+  if (tone === 'muted') return C.textDim;
+  if (tone === 'visited') return INDEX_VISITED;
+  return FACES[tone].accent;
+}

@@ -14,13 +14,34 @@ export const cellId = (c: CellInput, i: number): string => (typeof c === 'object
 /**
  * Apply the tone rules every kind shares (SPEC 3.3): `active` floats LIFT above the floor (its
  * shadow stays put), `muted` flattens to h = 0.25. Pass `lift: false` where floating would collide
- * (stack items).
+ * (stack items, grid cells) and `flatten: false` where a flat cell would expose its neighbours
+ * (grid cells keep their height and are only dimmed).
  */
-export function toneBlock(b: Omit<BlockSpec, 'tone' | 'z'> & { tone?: Tone; z?: number }, opts: { lift?: boolean } = {}): BlockSpec {
+export function toneBlock(
+  b: Omit<BlockSpec, 'tone' | 'z'> & { tone?: Tone; z?: number },
+  opts: { lift?: boolean; flatten?: boolean } = {},
+): BlockSpec {
   const tone = b.tone ?? 'idle';
   const z = (b.z ?? 0) + (tone === 'active' && opts.lift !== false ? LIFT : 0);
-  const h = tone === 'muted' ? Math.min(b.h, 0.25) : b.h;
+  const h = tone === 'muted' && opts.flatten !== false ? Math.min(b.h, 0.25) : b.h;
   return { ...b, tone, z, h };
+}
+
+/**
+ * Top-face value anchor for a cell whose right half is hidden: a taller cell in front (x + 1)
+ * covers the right half of the top face, so the value moves into the visible left half.
+ */
+export const TEXT_LEFT = -12;
+/** How much higher (in units) the next cell's top must be before a value moves left. */
+export const TEXT_SHIFT_RISE = 0.75;
+
+/** Text offsets for a row of blocks along x, front cell last (SPEC 3.1). Bars always shift. */
+export function rowTextDx(blocks: Pick<BlockSpec, 'z' | 'h'>[], bars = false): number[] {
+  return blocks.map((b, i) => {
+    if (bars) return TEXT_LEFT;
+    const next = blocks[i + 1];
+    return next && next.z + next.h - (b.z + b.h) >= TEXT_SHIFT_RISE - 1e-9 ? TEXT_LEFT : 0;
+  });
 }
 
 /**

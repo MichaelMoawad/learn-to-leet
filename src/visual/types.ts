@@ -12,6 +12,11 @@ export interface BlockSpec {
   h: number;
   text: string;
   textOn: 'top' | 'side';
+  /**
+   * Horizontal offset of the top-face value, screen px at scale 1 (default 0, centred). Rows set
+   * it to TEXT_LEFT when the cell in front is taller and would hide the right half of the face.
+   */
+  textDx?: number;
   sub?: string;
   tone: Tone;
   /** Hash map blocks say which half of an entry they are; lookups only match `key` blocks. */
@@ -52,14 +57,15 @@ export interface MarkerSpec {
 }
 /**
  * Upright text anchored to a floor point. `title` renders as a pill floating above (or below) the
- * anchor with a thin leader line; `index` and `note` are small floor labels.
+ * anchor with a thin leader line; `tag` is the same pill centred on the anchor, no leader line;
+ * `index` and `note` are small floor labels.
  */
 export interface LabelSpec {
   key: string;
   x: number;
   y: number;
   text: string;
-  kind: 'title' | 'index' | 'note';
+  kind: 'title' | 'tag' | 'index' | 'note';
   /** Local key of the block this label annotates (index labels). Tokens can fly from it. */
   for?: string;
   /** Titles only: float above the anchor (default) or hang below it. */

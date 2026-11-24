@@ -97,7 +97,15 @@ export function titleBox(l: LabelSpec, k = 1): { anchor: Pt; box: Rect } {
   return { anchor, box: { x, y, w, h: PILL_H } };
 }
 
+/** Pill box of a tag label: centred on its anchor, no leader line. */
+export function tagBox(l: LabelSpec, k = 1): Rect {
+  const [x, y] = project(l.x, l.y);
+  const w = pillWidth(l.text, k);
+  return { x: x - w / 2, y: y - PILL_H / 2, w, h: PILL_H };
+}
+
 export function labelRect(l: LabelSpec): Rect {
+  if (l.kind === 'tag') return tagBox(l);
   if (l.kind === 'title') {
     const { anchor, box } = titleBox(l);
     return union(box, { x: anchor[0] - 3, y: anchor[1] - 3, w: 6, h: 6 })!;

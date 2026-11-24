@@ -22,7 +22,7 @@ import { Zone } from './render/Zone';
 import { NONE, SceneMotionContext, type SceneMotion } from './render/context';
 import { Caption, Controls, Legend, legendItemWidth, tileSize, VarTile } from './hud/Hud';
 import { blockTop, textBoost } from './metrics';
-import { C, FACES, TONE_LABELS } from './tones';
+import { C, FACES, indexColor, TONE_LABELS } from './tones';
 import type { CBlock, ComposedScene, Rect } from './types';
 import './visual.css';
 
@@ -149,7 +149,7 @@ export function Visual({ scenes, index }: { scenes: Scene[]; index: number }) {
     for (const m of plan.misses) if (t >= m.start && t < m.start + m.dur) flashing.set(m.sid, C.red);
   }
   const hotIndex = new Map<string, string>();
-  for (const b of composed.blocks) if (b.tone !== 'idle' && b.tone !== 'muted') hotIndex.set(b.key, FACES[b.tone].accent);
+  for (const b of composed.blocks) hotIndex.set(b.key, indexColor(b.tone));
 
   // ---- Leet ----
   const leet = composed.leet;
@@ -231,7 +231,7 @@ export function Visual({ scenes, index }: { scenes: Scene[]; index: number }) {
     const at = items.findIndex((it) => it.kind === 'block' && depthCompare(lk, it.b) < 0);
     items.splice(at < 0 ? items.length : at, 0, { kind: 'leet' });
   }
-  const pose = walk.walking && !instant ? 'walk' : leetPose(scene);
+  const pose = walk.walking && !instant ? 'walk' : leetPose(scenes, run.shown);
 
   return (
     <SceneMotionContext.Provider value={motionCtx}>

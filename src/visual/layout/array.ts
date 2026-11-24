@@ -1,15 +1,16 @@
 // array (SPEC 3.3): cells along x at y = 0, index labels on the floor in front, pointer markers
 // above, `window` as a floor bracket, `bars` heights from values. Strings are arrays of characters.
+// A value sits left of centre when the cell in front of it is taller (bars: always).
 import type { ArrayStructure } from '../../content/schema';
 import type { BlockSpec, LayoutResult } from '../types';
-import { cellId, DEFAULT_H, empty, normCell, pointerMarkers, toneBlock } from './common';
+import { cellId, DEFAULT_H, empty, normCell, pointerMarkers, rowTextDx, toneBlock } from './common';
 
 /** Shared by array and queue: blocks for a row of cells along x. */
 export function rowBlocks(cells: ArrayStructure['cells'], variant: ArrayStructure['variant'] = 'cells'): BlockSpec[] {
   const norm = cells.map(normCell);
   const nums = norm.map((c) => (typeof c.value === 'number' ? Math.abs(c.value) : NaN));
   const max = Math.max(0, ...nums.filter((n) => !Number.isNaN(n)));
-  return norm.map((c, i) => {
+  const blocks = norm.map((c, i) => {
     let h = c.h ?? DEFAULT_H;
     if (variant === 'bars') {
       const v = nums[i];
@@ -17,6 +18,9 @@ export function rowBlocks(cells: ArrayStructure['cells'], variant: ArrayStructur
     }
     return toneBlock({ key: cellId(cells[i], i), x: i, y: 0, h, text: String(c.value), textOn: 'top', sub: c.sub, tone: c.tone });
   });
+  // Values move into the visible left half of the top face when the next cell hides the right half.
+  const dx = rowTextDx(blocks, variant === 'bars');
+  return blocks.map((b, i) => (dx[i] ? { ...b, textDx: dx[i] } : b));
 }
 
 /** Resolve a pointer `at` (index or cell id) to a block key in a row. */

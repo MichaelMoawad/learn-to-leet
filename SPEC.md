@@ -154,6 +154,12 @@ export interface Scene {
   structures: Structure[]; // drawn top to bottom in this order
   vars?: Var[];            // variable chips shown above the drawing
   caption?: string;        // one line under the drawing
+  // Token flows the step diff cannot express (3.0 item 3). `from` and `to` are element keys
+  // ('nums/2', 'seen/6'). `loop` true (default): tokens keep flowing while idle. `loop: false`: one
+  // token flies when the step is entered. Flows with missing endpoints are ignored.
+  flows?: { from: string; to: string; tone?: Tone; loop?: boolean }[];
+  // Leet in the scene. `pose` forces a pose, `at` an element key to stand beside, `hidden` removes Leet.
+  leet?: { pose?: LeetPose; at?: string; hidden?: boolean };
 }
 export interface Var { name: string; value: string | number; tone?: Tone }
 
@@ -227,6 +233,8 @@ Size limits, enforced by `check-content`: cell text up to 4 characters, arrays u
 - Use the same input for the whole walkthrough, and make it `tests[0]`.
 - Tones mean the same thing everywhere: `active` is the element being looked at now, `compare` is being checked against something, `good` is a match or part of the answer, `bad` is a failed check, `muted` is ruled out, `visited` is already processed.
 - Height is for things that are physically taller or flatter (land and water, bar heights). Emphasis is always tone, never `h`.
+- `bars` values are at most 2 characters: the value sits in the left half of the top face, the only part a taller bar in front never hides.
+- Leet cheers automatically on the lesson's final scene (and trailing steps repeating it) when it has a `good` var or cell. To cheer anywhere else, set `scene.leet.pose`.
 - Both reference solutions must pass every test. Tests cover the worked example, the smallest valid input, duplicates or negatives where relevant, and one case that breaks the most likely wrong solution.
 
 ### 2.3 Complete example: `src/content/lessons/two-sum.ts`
@@ -482,12 +490,12 @@ Reference: `reference/target-scene.webp` (from designed-to-scale). The visual is
 Decided by Michael on 2026-11-23. The scene is a dark floor with a dotted diamond grid, and every piece of data is a block standing on it, drawn in 2:1 pixel-art isometric as one inline SVG.
 
 - A tile is 64px wide and 32px tall on screen. One height unit is 16px.
-- A block is a slab with three visible faces (top, left, right) and a floor shadow. It is inset 3px from its tile so neighbours show a gap.
+- A block is a slab with three visible faces (top, left, right), a 2px rim, a 1px light line along the back edges of the top face, and a soft blurred floor shadow. It is inset 4px (x) and 2px (y) from its tile so neighbours show a gap. The rim is a visible colour, not ink (an ink outline vanishes on the dark floor): `#4a64b4` on idle blocks, the tone's deep colour pulled slightly toward ink otherwise. Faces use `shape-rendering="crispEdges"`, the rim and other outlines use the default (anti-aliased) rendering.
 - Draw order, back to front: floor grid, zones, edges, shadows, blocks sorted by `x + y` then `z`, then markers and labels.
 
 Isometric costs legibility on a phone, so these rules are not optional:
 
-1. **Text stays upright.** Values sit centred on the top face, screen-aligned, never sheared. Pointers and labels are upright billboards. The one exception is stack items, whose value is sheared onto the right face because the top is covered.
+1. **Text stays upright**, everywhere, never sheared. Values sit on the top face, centred, except where the next cell in a row hides the right half of the face: there the value moves into the left half (`textDx`, see 3.3). Stack items, whose top is covered, carry their value upright and centred on the right face. Pointers, labels and Leet are upright billboards.
 2. **Rows run along the x axis** (down and to the right on screen) and never wrap.
 3. **Trees and graphs are placed in screen-aligned rows and columns**, so a tree still reads top down. Each node is still an isometric block on the floor.
 4. **A lesson's composed scene is at most 480 by 480 px** at scale 1, so a 390px phone never shrinks value text below about 11px. `check-content` enforces this.
@@ -504,8 +512,9 @@ Isometric costs legibility on a phone, so these rules are not optional:
 Pipeline, each stage a pure function so it can be unit tested and reused by `check-content`:
 
 1. `layout/<kind>.ts`: `(structure) => LayoutResult` in world coordinates (tiles).
-2. `compose.ts`: projects each structure to screen pixels, stacks their bounding boxes vertically (24px gap, centred), puts a structure marked `beside` to the right of the previous one instead (32px gap, bottom-aligned), prefixes keys with the structure id, and returns the flat screen-space lists plus bounds. Offsets snap to the (32, 16) tile lattice so every row structure sits on the shared floor grid.
-3. `Visual.tsx`: renders the SVG (`viewBox` set to the lesson-wide bounds plus 24px padding, scaled to fit the pane, never above 1.5x). Vars and caption are HTML above and below the SVG.
+2. `compose.ts`: projects each structure to screen pixels and stacks structures vertically, centred, with a 24px gap between what is actually drawn (a skyline of element rects, not bounding boxes, so a diagonal row does not waste the floor under its low end). A structure marked `beside` goes to the right of the previous one instead (32px gap, bottom-aligned). Each structure keeps one lesson-wide shape (everything it draws in any scene), so it never moves between steps. Offsets snap to the (32, 16) tile lattice so every structure sits on the shared floor grid. Prefixes keys with the structure id, places Leet and returns the flat screen-space lists plus bounds.
+3. `choreo.ts`: plans the step choreography from the diff of two consecutive scenes (3.4).
+4. `Visual.tsx`: renders the SVG, fitted once to the lesson-wide bounds around the HUD, never above 1.5x. HUD tiles, Replay and Pause, caption and legend are HTML over the SVG.
 
 ```ts
 // visual/iso.ts
@@ -520,43 +529,55 @@ interface LayoutResult { blocks: BlockSpec[]; edges: EdgeSpec[]; zones: ZoneSpec
 
 // A block fills the tile [x, x+1] by [y, y+1], starts z units above the floor and is h units tall.
 // x and y may be fractional (trees and graphs).
-interface BlockSpec  { key: string; x: number; y: number; z: number; h: number; text: string; textOn: 'top' | 'side'; sub?: string; tone: Tone }
-interface EdgeSpec   { key: string; points: [number, number][]; tone: Tone; arrow: boolean; label?: string } // polyline on the floor
-interface ZoneSpec   { key: string; x: number; y: number; w: number; d: number; tone: Tone }                 // outlined floor rectangle
-interface MarkerSpec { key: string; x: number; y: number; z: number; text: string; tone: Tone }              // pointer: down arrow and label floating above a floor point
-interface LabelSpec  { key: string; x: number; y: number; text: string; kind: 'title' | 'index' | 'note' }   // upright text anchored to a floor point
+interface BlockSpec  { key: string; x: number; y: number; z: number; h: number; text: string; textOn: 'top' | 'side';
+                       textDx?: number;          // top-face value offset, screen px at scale 1, default 0
+                       sub?: string; tone: Tone; role?: 'key' | 'value' }                     // role: hash map halves
+interface EdgeSpec   { key: string; points: [number, number][]; tone: Tone; arrow: boolean; label?: string;
+                       cap?: 'arrow' | 'cross' | 'none'; flow?: boolean }                     // polyline on the floor
+interface ZoneSpec   { key: string; x: number; y: number; w: number; d: number; tone: Tone; style?: 'outline' | 'plate' } // floor rectangle
+interface MarkerSpec { key: string; x: number; y: number; z: number; text: string; tone: Tone; for?: string } // pointer: down arrow and pill floating above a floor point
+interface LabelSpec  { key: string; x: number; y: number; text: string; kind: 'title' | 'tag' | 'index' | 'note';
+                       for?: string; place?: 'above' | 'below'; align?: 'center' | 'end' }   // upright text anchored to a floor point
 ```
 
-Value text is JetBrains Mono 700 at 16px, dropping to 12px for 4 characters. Markers use a 16px arrow sprite and a Silkscreen label. All screen coordinates are integers at rest.
+Value text is JetBrains Mono 700 at 16px, dropping to 12px for 4 characters, on the top face and on stack side faces alike. Below scale 1 small text is boosted so it stays legible on a phone (values about 13.6px, pills and indices about 11px at 390px). Labels: `title` is a pill floating above (or below) its anchor with a thin leader line, `tag` is the same pill centred on its anchor with no leader, `index` is Silkscreen floor text, `note` small mono floor text. All screen coordinates are integers at rest.
 
-Start with `shape-rendering="crispEdges"` on faces for the pixel look. If diagonals look ragged at fractional scales, the phase 3 review may switch outlines to `geometricPrecision`.
+Edge rendering: block faces use `shape-rendering="crispEdges"` for the pixel look, rims and outlines keep the default anti-aliased rendering.
 
 ### 3.3 Structures
 
 | Kind | Layout |
 |---|---|
-| `array` | Cells along x at `y = 0`, `h` from the cell (default 1). Index labels on the floor in front of each cell. Pointer markers float above their cell, and several on one cell stack upward. `window` draws a zone around the range. The `bars` variant sets `h = 0.75 + 3.25 * value / max`. Strings are arrays of single characters. |
-| `hashmap` | Entries along x. Each entry is two touching blocks: key at the back (`y = 0`), value in front (`y = 1`). A set (no values) is the key row only. New entries append at the end. |
-| `stack` | A pile on one tile. Each item is 1.5 units tall, stacked along z, value on the right face. A "top" marker floats above the pile. |
-| `queue` | A row along x like an array, with "front" and "back" floor labels at the two ends. |
-| `linkedList` | Nodes along x on every second tile, floor arrows between them. A `next` that is not the following node routes along the lane in front of the row (`y = 1.5`). A node whose `next` is null gets a stub arrow ending in a small cross. |
+| `array` | Cells along x at `y = 0`, `h` from the cell (default 1.5). Index labels on the floor in front of each cell. Pointer markers float above their cell, and several on one cell stack upward. `window` draws a dashed zone around the range. The `bars` variant sets `h = 0.75 + 3.25 * value / max`. Strings are arrays of single characters. |
+| `hashmap` | Entries along x on a floor plate, 1.5 tiles apart so the gap between entries is wider than the seam inside one. Each entry is two touching blocks: key at the back (`y = 0`, h 1.5), a shorter, dimmer value block in front (`y = 0.875`, h 0.75). A set (no values) is the key row only. New entries append at the end. Empty slots up to the lesson-wide entry count show as dashed floor tiles. |
+| `stack` | A pile on one tile on a floor plate. Each item is 1.5 units tall, stacked along z, value upright on the right face. A "top" marker floats above the pile. |
+| `queue` | A row along x like an array (default h 1.5) on a floor plate, with "front" and "back" tag pills on the row's axis beyond the two ends, at least 6px clear of the blocks. |
+| `linkedList` | Nodes along x on every second tile, floor arrows between them at `y = 0.72` (the floor just behind a block is hidden by it). A `next` that is not the following node routes along the lane in front of the row (`y = 1.5`). A node whose `next` is null gets a stub ending in a small pixel cross. |
 | `tree` | Screen-aligned: column = in-order position at 48px, row = depth at 64px, converted with `unproject`. Edges are floor lines from parent to child, no arrowheads. |
-| `graph` | Screen-aligned: `at` times (96px, 64px), converted with `unproject`. Edges are straight floor lines trimmed 20px short of each node centre, with arrowheads when `directed` and an optional upright label at the midpoint. |
-| `grid` | Cell `(r, c)` on tile `(c, r)`, `h` from the cell. Pointer markers float above their cell. |
+| `graph` | Screen-aligned: `at` times (96px, 64px), converted with `unproject`. Edges are straight floor lines trimmed at least 20px short of each node centre, and further where needed so the end (and its arrowhead when `directed`) clears the block outline. Optional upright label pill at the midpoint. |
+| `grid` | Cell `(r, c)` on tile `(c, r)`, `h` from the cell (default 1). Pointer markers float above their cell. `Cell.sub` is not drawn (the floor in front of a cell is the next row's cell). |
 
-Each structure's `label` is an upright title at the top left of its bounding box. `Cell.sub` is a small floor label in front of the block.
+Each structure's `label` is an upright title pill. `Cell.sub` is a small floor label in front of the block (except in grids). Edges and lines lit in a tone carry small glowing tokens flowing along them while idle (EdgeSpec `flow`).
 
-Tone rendering, the same for every kind. Top face takes the tone colour, the right face its deep colour, the left face an even mix of the two, with a 2px `--ink` outline and `--ink` text.
+Value position in rows (arrays and queues): cell k+1 is drawn in front of cell k and covers the right half of its top face when taller. A value moves into the left half of the top face (`textDx = -12`) when the next cell's top (`z + h`, `LIFT` included) is at least 0.75 units higher than its own, else it stays centred. The offset tweens with the height. `bars` values always sit in the left half, so the row reads consistently.
+
+Tone rendering, the same for every kind. Top face takes the tone colour, the right face its deep colour, the left face an even mix of the two, a rim in the deep colour pulled slightly toward ink, and `--ink` text.
 
 | Tone | Look |
 |---|---|
-| `idle` | Top `--bg-2`, left `#0e1630`, right `--bg-1`, outline `--line-bright`, `--text` text |
-| `active` | Cyan, floating `LIFT` above the floor while its shadow stays put |
+| `idle` | Top `#1c2a55`, left `#16224a`, right `#101a3b`, rim `#4a64b4`, `--text` text (a step brighter than the floor and plates, so idle blocks read as objects) |
+| `active` | Cyan with a soft glow and a slow bob, floating `LIFT` above the floor while its shadow stays put. Grid cells do not float. |
 | `compare` | Amber |
 | `good` | Green |
 | `bad` | Red |
-| `visited` | Violet at 70% opacity |
-| `muted` | Idle colours at 45% opacity, flattened to `h = 0.25` |
+| `visited` | Opaque dim violet (violet mixed toward the idle top), `--text` text. Opaque so dense scenes do not show through. |
+| `muted` | Idle colours at 45% opacity, flattened to `h = 0.25`. Grid cells keep their height and are only dimmed: opaque, idle colours pulled halfway to the floor, `--text-dim` text (a translucent full-height cell would show its neighbours through it). |
+
+Index labels take the colour of their cell's tone: idle a step lighter than `--text-dim`, visited a violet clearly lighter than the visited face, muted `--text-dim`, other tones their accent.
+
+HUD tiles (3.0 item 4) show the var name exactly as written (it is a code identifier) in JetBrains Mono at about 11px in `--text-dim`, no uppercase, above the big value.
+
+**Leet in the scene** is an upright billboard of the front sprite with a right-side extrusion and a stepped floor shadow, not a 3/4 isometric drawing (unreadable at 48px). It stands on a whole floor tile as close as possible to its anchor (`scene.leet.at`, else the first structure's first pointer target, else the first `active` block, else the first block) without touching any block, marker, label or edge, is depth-sorted with the blocks, and walks when its tile changes. Pose: `scene.leet.pose` always wins; otherwise it cheers only on the last distinct scene of the lesson (the final scene and any trailing steps repeating its structures and vars) when that scene has a `good` var or cell, and idles everywhere else.
 
 ### 3.4 Transitions
 
@@ -572,7 +593,13 @@ Every spec renders as a Motion element keyed by `key` inside `AnimatePresence`, 
 | Key removed | Sinks 8px and fades in 150ms. |
 | Var chip value change | 200ms flash in the chip's tone. |
 
-Depth order always follows the target step, so blocks re-sort at the start of a transition. Going Back plays the same transitions between the same two states, with no special casing. Reduced motion sets every duration to 0, so steps swap instantly.
+Depth order always follows the target step, so blocks re-sort at the start of a transition. Reduced motion sets every duration to 0, so steps swap instantly.
+
+**Choreography** (3.0 item 3, `choreo.ts`, pure). Entering a step forward by exactly one, or Replay, plays the diff in three phases. Back and multi-step jumps play only the plain tweens above.
+
+1. Slide: pointer markers, moved blocks and Leet spring to their new spots (`slide` 320ms; when nothing moves the next phase starts after `idleLead` 120ms).
+2. Lookups, "check first, store second": a block whose tone changes to `good`, `bad` or `compare` pulses in its new tone; a new or changed var with tone `good`, `bad` or `active` whose value matches a hash map key pulses that key; a `bad` var matching no key flashes the first hash map red (title pill and a ring on its plate). Pulse and miss last 620ms, and flights wait `lookupGap` 300ms when there was a lookup.
+3. Flights: a new block whose text matches an `active` or `compare` block in another structure (or that block's index label) gets a glowing token flying along an arc from it (`fly` 420ms, staggered 130ms in draw order). The block stays hidden until the token lands, then drops in (250ms). `flows` with `loop: false` fly one plain token in this phase.
 
 ---
 

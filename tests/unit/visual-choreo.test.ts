@@ -5,6 +5,7 @@ import { scenesForLesson } from '../../src/lesson/scenes';
 import { arcPoint, planChoreo, TIMING } from '../../src/visual/choreo';
 import { composeLesson, composeScene } from '../../src/visual/compose';
 import { leetPose } from '../../src/visual/leet';
+import gridSamples from '../../src/visual/samples/grid';
 
 const scenes = scenesForLesson(twoSum);
 const lesson = composeLesson(scenes);
@@ -66,8 +67,37 @@ describe('choreography diff on Two Sum', () => {
     }
   });
 
-  it('Leet cheers on the step that finds the answer', () => {
-    expect(scenes.map(leetPose)).toEqual(['idle', 'idle', 'idle', 'idle', 'idle', 'idle', 'cheer', 'cheer', 'cheer']);
+  it('Leet cheers on the step that finds the answer and the steps repeating it, not before', () => {
+    expect(scenes.map((_, i) => leetPose(scenes, i))).toEqual(['idle', 'idle', 'idle', 'idle', 'idle', 'idle', 'cheer', 'cheer', 'cheer']);
+  });
+});
+
+describe('Leet pose rule', () => {
+  const s = (tone?: 'good' | 'active', extra: Partial<Scene> = {}): Scene => ({ structures: [{ kind: 'array', id: 'a', cells: [{ value: 1, tone }] }], ...extra });
+
+  it('cheers only on the last distinct scene, and only when it has a good var or cell', () => {
+    const goodVar: Scene = { structures: [], vars: [{ name: 'x', value: 1, tone: 'good' }] };
+    expect([goodVar, s(), s('good')].map((_, i, all) => leetPose(all, i))).toEqual(['idle', 'idle', 'cheer']);
+    expect([s('good'), s('active')].map((_, i, all) => leetPose(all, i))).toEqual(['idle', 'idle']);
+    expect([s(), goodVar].map((_, i, all) => leetPose(all, i))).toEqual(['idle', 'cheer']);
+  });
+
+  it('treats trailing steps that repeat the final picture as the final scene (captions ignored)', () => {
+    const all = [s(), s('good', { caption: 'found' }), s('good', { caption: 'recap' })];
+    expect(all.map((_, i) => leetPose(all, i))).toEqual(['idle', 'cheer', 'cheer']);
+  });
+
+  it('lets an explicit pose win anywhere', () => {
+    const all = [s(undefined, { leet: { pose: 'cheer' } }), s('good', { leet: { pose: 'oops' } })];
+    expect(all.map((_, i) => leetPose(all, i))).toEqual(['cheer', 'oops']);
+    expect(leetPose(all, -1)).toBe('idle');
+  });
+
+  it('flood fill sample: no cheer until its last step', () => {
+    const flood = gridSamples.find((x) => x.title.startsWith('Flood fill'))!.scenes;
+    const poses = flood.map((_, i) => leetPose(flood, i));
+    expect(poses.slice(0, -1).every((p) => p === 'idle')).toBe(true);
+    expect(poses[poses.length - 1]).toBe('cheer');
   });
 });
 
