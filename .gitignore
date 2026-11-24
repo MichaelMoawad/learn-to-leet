@@ -9,3 +9,4 @@ playwright/.cache
 .vercel
 .DS_Store
 *.local
+.env*
