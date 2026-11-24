@@ -27,7 +27,7 @@ House rules that apply to every phase and every agent:
 | `markdown-to-jsx` | 9 | Renders the small Markdown subset used in step text. |
 | `@fontsource/*` (self-hosted fonts) | 5 | No third-party font requests, no layout shift. |
 | Vitest, Playwright | 5, 1.65 | Unit tests for harness, compare and layout. One e2e smoke test. |
-| Node | 22 | Already installed. |
+| Node | 22.22 or later | react-router 8 asks for it. This machine has 22.14, which works with an install warning. |
 
 Hosting is Vercel static. `vercel.json` rewrites every path to `/index.html`. No COOP/COEP headers are needed (see section 4, timeouts).
 
@@ -62,7 +62,7 @@ learn-to-leet/
 - `/learn/:slug?step=N` Lesson. `N` is 1-based and kept in sync with `history.replaceState`.
 - `/dev/visuals` Gallery of every structure with sample scenes and a step scrubber. Dev builds only.
 
-Lesson page, desktop (1024px and up): header (logo, "module / lesson n of m", chips for difficulty, minutes and steps, course drawer button, reduced-motion toggle), then two columns. Left is a 400px text rail (step counter, title, body, Leet bubble). Right is the pane with two tabs, `VISUAL` and `CODE`. A fixed bottom bar holds Back, one clickable progress segment per step, "STEP 3 / 9", and Next. On the last step Next becomes "Next lesson".
+Lesson page, desktop (1024px and up): header (logo, "module / lesson n of m", chips for difficulty, minutes and steps, course drawer button, reduced-motion toggle), then two columns. Left is a 400px text rail (step counter, title, body, Leet bubble). Right is the pane with two tabs, `VISUAL` and `CODE`. A fixed bottom bar holds Back, one clickable progress segment per step, "STEP 3 / 9", and Next. On the last step Next becomes "Next lesson", or "All lessons" (back to Home) when the next lesson has no file yet.
 
 Below 1024px the layout stacks: pane first (visual capped at 46vh), text under it, stepper bar fixed to the bottom with safe-area padding. On the challenge step the text goes above the pane.
 
@@ -465,6 +465,18 @@ export default lesson;
 
 ## 3. Visual engine
 
+### 3.0 Target feel (added 2026-11-23 after reviewing phase 2)
+
+Reference: `reference/target-scene.webp` (from designed-to-scale). The visual is the hero of every step: a living isometric diorama, not a box of text. Phase 3 isn't done until a Two Sum step stands up next to that screenshot, rendered in our dark neon palette. Everything in 3.1 to 3.4 still applies. This section raises the bar on top of it.
+
+1. **The scene fills the pane.** No card, border or "VISUAL" heading around it. The dotted floor grid runs edge to edge across the whole visual pane at full height, and the data sits centred on it.
+2. **Chunky, physical objects.** Thick outline, a soft floor shadow, a lit top face (a 1px highlight on the top edge) and a darker side face. Blocks should look like things you could pick up, not flat diagrams.
+3. **Steps play, they don't snap.** On entering a step the scene acts out the operation: the pointer slides to its cell, the value being stored flies as a glowing token along an arc from the array cell into its hash map slot, a lookup pulses the slot it checks. Where it fits, idle motion loops, like tokens flowing along edges the way requests flow in the reference. Derive these from the diff between consecutive scenes (a new block whose text matches an active block flies out of it) so lesson authors write nothing extra. Add an optional `flows` field to `Scene` only for cases the diff can't express. **Replay** and **Pause** sit top right of the pane as small `Button3D`s. Reduced motion shows the end state.
+4. **HUD tiles.** The step vars become stat tiles across the top of the pane (pixel icon, small label, big value), like the reference's Users / Requests tiles. A tile flashes in its tone when its value changes.
+5. **Pill labels.** Structure titles and callouts are rounded pills floating above their object with a thin leader line, not loose text.
+6. **Leet lives in the scene.** The mascot stands on the floor as an isometric pixel character beside the active element and walks with it (for example along the array with `i`), and celebrates when a step finds the answer. The tip box in the text rail stays.
+7. **Legend** at the bottom left, showing only the tones the lesson uses.
+
 ### 3.1 Style: true isometric
 
 Decided by Michael on 2026-11-23. The scene is a dark floor with a dotted diamond grid, and every piece of data is a block standing on it, drawn in 2:1 pixel-art isometric as one inline SVG.
@@ -601,6 +613,8 @@ type FromWorker =
   | { type: 'done'; runId: number };
 ```
 
+Phase 2 added three worker messages to this list: `progress` (runtime load fraction), `load-error` and `crash`. `src/sandbox/protocol.ts` is the source of truth from here on. Each language has one runner shared by the whole page, so Pyodide loads once per visit.
+
 Workers only execute and serialise. The pass or fail decision is made once, on the main thread, in `compare.ts`, so both languages are judged identically:
 
 - `exact`: deep equality on JSON values, numbers equal within `1e-9`.
@@ -622,7 +636,7 @@ Python, per run:
 
 1. Create a fresh namespace. Exec the prelude (`ListNode`, `TreeNode`, and the JSON codecs for `linkedList` and `tree`), then `exec(compile(code, 'solution.py', 'exec'), ns)`. A `SyntaxError` becomes `compile-error` with its line.
 2. Look up `entry` in the namespace. Missing or not callable becomes `compile-error`: "Define a function named `two_sum`."
-3. For each test: decode the args from JSON (a fresh copy per test), redirect stdout to a buffer, time the call, encode the result (tuples become lists, list and tree nodes go through the codecs), and `json.dumps` it. A value that cannot be serialised is an error that says what was returned.
+3. For each test: decode the args from JSON (a fresh copy per test), redirect stdout to a buffer, time the call, encode the result (tuples become lists, list and tree nodes go through the codecs), and `json.dumps` it. A value that cannot be serialised is an error that says what was returned. Returning `None` is a failed test, not an error.
 4. An exception becomes `{ message: 'IndexError: list index out of range', line }`, where `line` is the last traceback frame in `solution.py`.
 
 JS / TS, per run:
@@ -789,7 +803,8 @@ Phase done when: the e2e test passes and the phase 2 row of the table in `BRIEF.
 
 **3A Engine core** (first). Owns `src/visual`, `src/pages/DevVisuals.tsx`, `tests/unit/visual*`. Sections 2.1 (visual types), 3, 5.1.
 Build `iso.ts`, the six render primitives (floor, zone, edge, block, marker, label) with depth sorting, `compose.ts` including `beside`, `Visual.tsx` with every transition in 3.4, vars and caption, reduced motion, and the `array` (including `window` and `bars`), `hashmap`, `stack` and `queue` layouts. Build `/dev/visuals` with a scrubber and at least two sample scene sequences per structure. Add the scene bounds check to `scripts/check-content.ts`, the one file outside your paths you may edit. Unit test `project` and `unproject`, each layout function and the key rule.
-Done when: the Two Sum lesson plays end to end with correct tweens forward and back, the view never shifts between steps, blocks never draw in the wrong depth order, and values, indices and pointers are readable at 390px wide.
+Also build everything in 3.0 except Leet in the scene (3C provides the sprite, 3A places it).
+Done when: a screenshot of Two Sum step 4 at 1280px, put next to `reference/target-scene.webp`, reads as the same kind of thing (full-pane floor, chunky lit blocks, HUD tiles, pills, a token flying from the array into the map). Also: the lesson plays end to end with correct tweens forward and back, the view never shifts between steps, blocks never draw in the wrong depth order, and values, indices and pointers are readable at 390px wide.
 
 **3B Remaining structures** (after 3A merges). Owns `src/visual/layout/{linkedList,tree,graph,grid}.ts` and their gallery samples. Sections 2.1, 3.3.
 Done when: each has gallery sequences that exercise its hard case (list rewiring with a backward arc, a tree gaining tones level by level, a directed graph with edge tones, a grid flood fill) and unit tests.
@@ -798,7 +813,7 @@ Done when: each has gallery sequences that exercise its hard case (list rewiring
 Draw the four poses and the icon set as character grids, build `PixelSprite`, `Leet` and `LeetBubble`, and replace the placeholders from 2A.
 Done when: all four poses read clearly at 48px and 96px, frames animate at 3 fps and freeze under reduced motion, and no image files were added.
 
-**3D Review** (Fable, short). Look at `/dev/visuals` and the Two Sum lesson at 1280px and 390px, with motion on and reduced. Judge whether values, indices and pointers stay readable in isometric at phone width, transition feel, depth-order glitches, edge rendering (`crispEdges` or not), and whether Leet looks intentional. Output a punch list of at most 10 items. An Opus agent fixes them.
+**3D Review** (Fable, short). Look at `/dev/visuals` and the Two Sum lesson at 1280px and 390px, with motion on and reduced, next to `reference/target-scene.webp`. First judge whether it meets every point in 3.0. A miss there goes to the top of the punch list. Then judge whether values, indices and pointers stay readable in isometric at phone width, transition feel, depth-order glitches, edge rendering (`crispEdges` or not), and whether Leet looks intentional. Output a punch list of at most 10 items. An Opus agent fixes them.
 Phase done when: the punch list is closed.
 
 ### Phase 4: lessons (Opus orchestrating, Sonnet agents)
