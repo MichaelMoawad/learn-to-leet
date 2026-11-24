@@ -83,6 +83,13 @@ export default function Home() {
           </a>{' '}
           by @DilumSanjaya. Problems are written in our own words and reference LeetCode by number.
         </p>
+        <p className="mt-2">
+          Built by{' '}
+          <a href="https://www.linkedin.com/in/michaelmoawad/" className="text-cyan underline underline-offset-4" target="_blank" rel="noreferrer">
+            Michael Moawad
+          </a>
+          .
+        </p>
       </footer>
     </div>
   );
