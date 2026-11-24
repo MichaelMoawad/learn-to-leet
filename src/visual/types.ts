@@ -72,6 +72,8 @@ export interface LabelSpec {
   place?: 'above' | 'below';
   /** Titles only: centre the pill on the anchor (default) or end it just right of the anchor. */
   align?: 'center' | 'end';
+  /** Titles only: extra lift in px, set lesson-wide by compose so the pill clears its blocks. */
+  rise?: number;
 }
 
 export interface LayoutResult {

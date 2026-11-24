@@ -2,6 +2,7 @@
 // compose.ts prefixes them with the structure id.
 import type { Cell, CellInput, Pointer, Tone } from '../../content/schema';
 import { LIFT } from '../iso';
+import { markerRect, overlaps } from '../metrics';
 import type { BlockSpec, LayoutResult, MarkerSpec } from '../types';
 
 export const empty = (): LayoutResult => ({ blocks: [], edges: [], zones: [], markers: [], labels: [] });
@@ -74,7 +75,7 @@ export function pointerMarkers(
     if (!b) continue;
     const k = count.get(b.key) ?? 0;
     count.set(b.key, k + 1);
-    out.push({
+    const m: MarkerSpec = {
       key: `@${p.id}`,
       x: b.x + 0.5,
       y: b.y + 0.5,
@@ -82,7 +83,11 @@ export function pointerMarkers(
       text: p.id,
       tone: p.tone ?? 'active',
       for: b.key,
-    });
+    };
+    // Pills of neighbouring cells collide on screen: raise this one a pill step until it clears
+    // every earlier marker (deterministic, in pointer order).
+    for (let guard = 0; guard < 12 && out.some((o) => overlaps(markerRect(m), markerRect(o), -2)); guard++) m.z += MARKER_STEP;
+    out.push(m);
   }
   return out;
 }

@@ -24,7 +24,7 @@ export function varIcon(name: string): IconName {
 /** Tile sizes, used both to draw tiles and to reserve room for them (so the view never shifts). */
 export const tileSize = (narrow: boolean) => (narrow ? { w: 80, h: 40 } : { w: 112, h: 56 });
 
-export function VarTile({ v, narrow, reduced }: { v: Var; narrow: boolean; reduced: boolean }) {
+export function VarTile({ v, narrow, reduced, ghost }: { v: Var; narrow: boolean; reduced: boolean; ghost?: boolean }) {
   const color = toneAccent(v.tone);
   const prev = useRef<{ value: Var['value']; n: number }>({ value: v.value, n: 0 });
   if (prev.current.value !== v.value) prev.current = { value: v.value, n: prev.current.n + 1 };
@@ -33,7 +33,7 @@ export function VarTile({ v, narrow, reduced }: { v: Var; narrow: boolean; reduc
   const valueColor = v.tone && v.tone !== 'idle' && v.tone !== 'muted' ? color : C.text;
   return (
     <div
-      data-var={v.name}
+      data-var={ghost ? undefined : v.name}
       className="pixel-corners relative flex items-center gap-2 overflow-hidden border-2 border-line bg-bg-1/90 pr-2 pl-3"
       style={{ minWidth: size.w, height: size.h }}
     >
@@ -65,13 +65,14 @@ export function VarTile({ v, narrow, reduced }: { v: Var; narrow: boolean; reduc
   );
 }
 
-export function Caption({ text }: { text?: string }) {
+export const CAPTION_CLASS =
+  'mx-auto w-fit max-w-full rounded-full border-2 border-line-bright bg-bg-1/90 px-4 py-0.5 text-center font-mono text-xs leading-snug text-text lg:py-1 lg:text-sm';
+
+/** `ghost` is the invisible measuring copy: same box, no test id. */
+export function Caption({ text, ghost }: { text?: string; ghost?: boolean }) {
   if (!text) return null;
   return (
-    <p
-      data-testid="scene-caption"
-      className="mx-auto w-fit max-w-full rounded-full border-2 border-line-bright bg-bg-1/90 px-4 py-0.5 text-center font-mono text-xs leading-snug text-text lg:py-1 lg:text-sm"
-    >
+    <p data-testid={ghost ? undefined : 'scene-caption'} className={CAPTION_CLASS}>
       {text}
     </p>
   );

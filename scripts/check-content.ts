@@ -276,7 +276,8 @@ function checkLesson(lesson: Lesson, slug: string): string[] {
   eachString(lesson, '', (s, at) => {
     if (s.includes('—')) out.push(`${at}: contains an em dash`);
     if (/leetify/i.test(s)) out.push(`${at}: contains "Leetify"`);
-    if (!s.trim()) out.push(`${at}: empty string`);
+    // Test data may legitimately be empty (an empty input string), copy may not.
+    if (!s.trim() && !at.startsWith('challenge.tests')) out.push(`${at}: empty string`);
   });
   const markdown: [string[], string][] = [
     [lesson.problem.statement, 'problem.statement'],

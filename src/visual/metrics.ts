@@ -93,7 +93,7 @@ export function titleBox(l: LabelSpec, k = 1): { anchor: Pt; box: Rect } {
   const anchor = project(l.x, l.y);
   const w = pillWidth(l.text, k);
   const x = l.align === 'end' ? anchor[0] + 12 - w : anchor[0] - w / 2;
-  const y = l.place === 'below' ? anchor[1] + TITLE_LEAD_BELOW : anchor[1] - TITLE_LEAD - PILL_H;
+  const y = l.place === 'below' ? anchor[1] + TITLE_LEAD_BELOW : anchor[1] - TITLE_LEAD - PILL_H - (l.rise ?? 0);
   return { anchor, box: { x, y, w, h: PILL_H } };
 }
 
@@ -155,5 +155,27 @@ export const LEET_W = 38;
 export const LEET_H = 54;
 export function leetRect(sx: number, sy: number): Rect {
   return { x: sx - LEET_W / 2, y: sy - LEET_H, w: LEET_W, h: LEET_H + 6 };
+}
+/**
+ * Everything Leet draws (sprite 26 x 24 px at scale 2 anchored at (12, 24), extrusion included,
+ * and the 32 px wide shadow), for the view bounds so he is never clipped.
+ */
+export function leetSpriteRect(sx: number, sy: number): Rect {
+  return { x: sx - 26, y: sy - LEET_H, w: 56, h: LEET_H + 10 };
+}
+
+/**
+ * Lift (px) a title pill needs to clear every block of its structure: blocks it overlaps
+ * horizontally and that reach up into (or above) the pill. Pure; used lesson-wide by compose.
+ */
+export function titleRise(l: LabelSpec, blocks: BlockSpec[], markers: MarkerSpec[] = [], pad = 2, k = 1): number {
+  const { box } = titleBox({ ...l, rise: 0 }, k);
+  let rise = 0;
+  const items: [Rect, number][] = [...blocks.map((b): [Rect, number] => [blockRect(b), pad]), ...markers.map((m): [Rect, number] => [markerRect(m), 5])];
+  for (const [r, p] of items) {
+    if (r.x >= box.x + box.w + p || box.x >= r.x + r.w + p) continue;
+    rise = Math.max(rise, box.y + box.h + p - r.y);
+  }
+  return Math.ceil(Math.max(0, rise));
 }
 

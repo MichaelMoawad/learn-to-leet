@@ -15,7 +15,7 @@ import type { Scene, Structure, Tone } from '../content/schema';
 import { project } from './iso';
 import { layoutStructure, type LayoutContext } from './layout';
 import { placeLeet } from './leet';
-import { blockRect, blockTop, edgeRect, labelRect, leetRect, markerRect, union, zoneRect } from './metrics';
+import { blockRect, blockTop, edgeRect, labelRect, leetSpriteRect, markerRect, titleRise, union, zoneRect } from './metrics';
 import type { CBlock, CEdge, CLabel, CMarker, ComposedScene, CZone, LayoutResult, Rect, ResolvedFlow, StructureKind } from './types';
 
 export const STACK_GAP = 24;
@@ -25,8 +25,9 @@ export const BESIDE_GAP = 32;
 export const elementKey = (structureId: string, elementId: string) => `${structureId}/${elementId}`;
 
 /** Layout plus the floor notes for `Cell.sub` (drawn in front of the block). */
-export function layoutWithSubs(s: Structure, ctx?: LayoutContext): LayoutResult {
-  const r = layoutStructure(s, ctx);
+export function layoutWithSubs(s: Structure, ctx?: LayoutContext & { rise?: number }): LayoutResult {
+  let r = layoutStructure(s, ctx);
+  if (ctx?.rise) r = { ...r, labels: r.labels.map((l) => (l.kind === 'title' && l.place !== 'below' ? { ...l, rise: ctx.rise } : l)) };
   const subY = s.kind === 'array' && s.indices !== false ? 1.95 : 1.4;
   // Grid cells have no free floor in front (it is the next row's cell), so their `sub` notes are skipped.
   const subs = r.blocks
@@ -117,8 +118,8 @@ const shiftRect = (r: Rect, dx: number, dy: number): Rect => {
 };
 
 /** Compose one scene. `shapes` (structure id -> local rects) keeps placement stable across a lesson. */
-export function composeScene(scene: Scene, shapes?: Map<string, Rect[]>, slots?: Map<string, number>): ComposedScene {
-  const layouts = scene.structures.map((s) => layoutWithSubs(s, { slots: slots?.get(s.id) }));
+export function composeScene(scene: Scene, shapes?: Map<string, Rect[]>, slots?: Map<string, number>, rises?: Map<string, number>): ComposedScene {
+  const layouts = scene.structures.map((s) => layoutWithSubs(s, { slots: slots?.get(s.id), rise: rises?.get(s.id) }));
   const localRects = scene.structures.map((s, i) => {
     const r = shapes?.get(s.id) ?? layoutRects(layouts[i]);
     return r.length ? r : [ZERO];
@@ -208,7 +209,7 @@ export function composeScene(scene: Scene, shapes?: Map<string, Rect[]>, slots?:
   for (const l of labels) bounds = union(bounds, labelRect(l));
   for (const z of zones) bounds = union(bounds, zoneRect(z));
   for (const e of edges) bounds = union(bounds, edgeRect(e));
-  if (leet) bounds = union(bounds, leetRect(leet.sx, leet.sy));
+  if (leet) bounds = union(bounds, leetSpriteRect(leet.sx, leet.sy));
 
   return { ...partial, leet, bounds: bounds ?? ZERO };
 }
@@ -233,15 +234,23 @@ export function composeLesson(scenes: Scene[]): ComposedLesson {
   for (const scene of scenes) {
     for (const s of scene.structures) if (s.kind === 'hashmap') slots.set(s.id, Math.max(slots.get(s.id) ?? 0, s.entries.length));
   }
+  // A title pill is lifted until it clears every block of its structure in any step.
+  const rises = new Map<string, number>();
+  for (const scene of scenes) {
+    for (const s of scene.structures) {
+      const r = layoutStructure(s, { slots: slots.get(s.id) });
+      for (const l of r.labels) if (l.kind === 'title' && l.place !== 'below') rises.set(s.id, Math.max(rises.get(s.id) ?? 0, titleRise(l, r.blocks, r.markers)));
+    }
+  }
   const shapes = new Map<string, Rect[]>();
   for (const scene of scenes) {
     for (const s of scene.structures) {
       const list = shapes.get(s.id) ?? [];
-      list.push(...layoutRects(layoutWithSubs(s, { slots: slots.get(s.id) })));
+      list.push(...layoutRects(layoutWithSubs(s, { slots: slots.get(s.id), rise: rises.get(s.id) })));
       shapes.set(s.id, list);
     }
   }
-  const composed = scenes.map((s) => composeScene(s, shapes, slots));
+  const composed = scenes.map((s) => composeScene(s, shapes, slots, rises));
   let bounds: Rect | null = null;
   const used = new Set<Tone>();
   for (const c of composed) {

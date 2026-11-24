@@ -78,6 +78,36 @@ function useSize(ref: React.RefObject<HTMLElement | null>) {
   return size;
 }
 
+/**
+ * Real heights of the HUD row and the caption at the current pane width, taken from an invisible
+ * copy that stacks the tallest candidates: the HUD of every distinct var set (tiles wrap to a
+ * second row on phones) and every distinct caption (long ones wrap to two lines). Reserving the
+ * maximum keeps the drawing clear of both and keeps it from moving between steps.
+ */
+function useHudMeasure(ref: React.RefObject<HTMLElement | null>, key: string) {
+  const [m, setM] = useState({ hud: 0, caption: 0 });
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const read = () => {
+      let hud = 0;
+      let caption = 0;
+      for (const c of Array.from(el.children) as HTMLElement[]) {
+        const h = c.getBoundingClientRect().height;
+        if (c.dataset.ghost === 'hud') hud = Math.max(hud, h);
+        else if (c.dataset.ghost === 'caption') caption = Math.max(caption, h);
+      }
+      setM((o) => (Math.abs(o.hud - hud) < 0.5 && Math.abs(o.caption - caption) < 0.5 ? o : { hud, caption }));
+    };
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    for (const c of Array.from(el.children)) ro.observe(c);
+    return () => ro.disconnect();
+  }, [ref, key]);
+  return m;
+}
+
 export function Visual({ scenes, index }: { scenes: Scene[]; index: number }) {
   const reduced = useReducedMotion();
   const uid = useId().replace(/:/g, '');
@@ -186,11 +216,22 @@ export function Visual({ scenes, index }: { scenes: Scene[]; index: number }) {
   const hasCaption = useMemo(() => scenes.some((s) => s.caption), [scenes]);
   const legendTones = useMemo(() => TONE_LABELS.filter(([t]) => lesson.tones.includes(t)), [lesson.tones]);
 
+  const varSets = useMemo(() => {
+    const seen = new Map<string, Scene['vars']>();
+    for (const s of scenes) if (s.vars?.length) seen.set(JSON.stringify(s.vars.map((v) => [v.name, String(v.value)])), s.vars);
+    return [...seen.entries()];
+  }, [scenes]);
+  const captions = useMemo(() => [...new Set(scenes.map((s) => s.caption).filter((c): c is string => !!c))], [scenes]);
+  const ghostRef = useRef<HTMLDivElement>(null);
+  const measured = useHudMeasure(ghostRef, `${varSets.length}/${captions.length}/${reduced}`);
+
   const tile = tileSize(narrow);
   const controlsW = reduced ? 0 : narrow ? 92 : 210;
   const perRow = Math.max(1, Math.floor((cw - 24 - controlsW) / (tile.w + 8)));
   const hudRows = maxVars ? Math.ceil(maxVars / perRow) : reduced ? 0 : 1;
-  const top = (narrow ? 4 : 12) + hudRows * (tile.h + 8);
+  const hudPad = narrow ? 4 : 12;
+  // Never less than the estimate; the measured HUD (its real wrapped height) can only add room.
+  const top = Math.max(hudPad + hudRows * (tile.h + 8), measured.hud ? measured.hud - hudPad + 8 : 0);
   let legendRows = 0;
   if (legendTones.length) {
     let x = 0;
@@ -204,7 +245,7 @@ export function Visual({ scenes, index }: { scenes: Scene[]; index: number }) {
       x += w;
     }
   }
-  const bottom = (narrow ? 8 : 10) + legendRows * (narrow ? 16 : 20) + (hasCaption ? (narrow ? 30 : 36) : 0);
+  const bottom = (narrow ? 8 : 10) + legendRows * (narrow ? 16 : 20) + (hasCaption ? Math.max(narrow ? 30 : 36, (narrow ? 6 : 8) + Math.ceil(measured.caption)) : 0);
   const availH = Math.max(80, ch - top - bottom);
   const PAD = 8;
   const lb = lesson.bounds;
@@ -328,6 +369,23 @@ export function Visual({ scenes, index }: { scenes: Scene[]; index: number }) {
           {plan && playing && <FlightLayer plan={plan} t={t} />}
         </svg>
 
+        <div ref={ghostRef} aria-hidden="true" className="pointer-events-none invisible absolute inset-x-0 top-0 -z-10">
+          {varSets.map(([key, vars]) => (
+            <div key={key} data-ghost="hud" className={`flex items-start justify-between gap-2 ${narrow ? 'p-1' : 'p-3'}`}>
+              <div className="flex min-w-0 flex-wrap gap-2">
+                {(vars ?? []).map((v) => (
+                  <VarTile key={v.name} v={v} narrow={narrow} reduced ghost />
+                ))}
+              </div>
+              {!reduced && <div className="shrink-0" style={{ width: controlsW - 12 }} />}
+            </div>
+          ))}
+          {captions.map((c) => (
+            <div key={c} data-ghost="caption" className={narrow ? 'px-1' : 'px-3'}>
+              <Caption text={c} ghost />
+            </div>
+          ))}
+        </div>
         <div className={`pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 ${narrow ? 'p-1' : 'p-3'}`}>
           <div className="flex min-w-0 flex-wrap gap-2" data-testid="scene-vars">
             {(scene.vars ?? []).map((v) => (
