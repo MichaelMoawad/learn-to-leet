@@ -8,7 +8,7 @@ export function LessonHeader({ lesson, onOpenCourse }: { lesson: Lesson; onOpenC
   const { module, n, of } = lessonPosition(lesson.slug);
   return (
     <header className="border-b-2 border-line bg-bg-0/90">
-      <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-6">
+      <div className="mx-auto flex max-w-[1920px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-6">
         <Link to="/" className="glow-cyan font-display text-base leading-none font-bold whitespace-nowrap text-text sm:text-lg">
           Learn to Leet
         </Link>

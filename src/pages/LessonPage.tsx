@@ -37,6 +37,7 @@ function LessonView({ lesson }: { lesson: Lesson }) {
   const [tab, setTab] = useState<PaneTab>(() => (index === challengeIndex ? 'code' : 'visual'));
   const [drawerOpen, setDrawerOpen] = useState(false);
   const titleFocus = useRef(false);
+  const textRef = useRef<HTMLDivElement>(null);
 
   const setStep = useStore((s) => s.setStep);
   const markCompleted = useStore((s) => s.markCompleted);
@@ -64,7 +65,8 @@ function LessonView({ lesson }: { lesson: Lesson }) {
     window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
   }, [index, lesson, setStep, markCompleted]);
 
-  // Each step starts at the top of its text. Focus moves to the title only for segment clicks.
+  // Each step starts at the top of its text (the page on phones, the text rail on desktop).
+  // Focus moves to the title only for segment clicks.
   const first = useRef(true);
   useEffect(() => {
     if (first.current) {
@@ -72,6 +74,7 @@ function LessonView({ lesson }: { lesson: Lesson }) {
       return;
     }
     if (window.scrollY > 0) window.scrollTo({ top: 0 });
+    if (textRef.current) textRef.current.scrollTop = 0;
     if (titleFocus.current) document.getElementById('step-title')?.focus({ preventScroll: true });
   }, [index]);
 
@@ -97,21 +100,18 @@ function LessonView({ lesson }: { lesson: Lesson }) {
 
   const nextLesson = nextAvailableLesson(lesson.slug);
   const onLast = () => navigate(nextLesson ? `/learn/${nextLesson.slug}` : '/');
-  const isChallenge = index === challengeIndex;
 
   return (
-    <div className="min-h-dvh pb-32 lg:pb-28">
+    <div className="min-h-dvh pb-32 lg:flex lg:h-dvh lg:min-h-[640px] lg:flex-col lg:pb-0">
       <LessonHeader lesson={lesson} onOpenCourse={() => setDrawerOpen(true)} />
-      <main className="mx-auto grid max-w-[1440px] gap-6 px-4 pt-4 sm:px-6 lg:grid-cols-[400px_minmax(0,1fr)] lg:gap-8 lg:pt-6">
-        <div className={`min-w-0 ${isChallenge ? 'order-1' : 'order-2'} lg:order-1`}>
-          <StepText lesson={lesson} index={index} />
-        </div>
-        <div className={`min-w-0 ${isChallenge ? 'order-2' : 'order-1'} lg:order-2`}>
-          <div className="lg:sticky lg:top-6">
-            <LessonPane lesson={lesson} index={index} tab={tab} onTab={setTab} />
-          </div>
-        </div>
-      </main>
+      <LessonPane
+        lesson={lesson}
+        index={index}
+        tab={tab}
+        onTab={setTab}
+        text={<StepText lesson={lesson} index={index} />}
+        textRef={textRef}
+      />
       <StepperBar
         labels={lesson.steps.map((s) => s.title)}
         index={index}

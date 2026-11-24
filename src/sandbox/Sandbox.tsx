@@ -23,15 +23,6 @@ let oopsShownThisSession = false;
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 
-function idle(fn: () => void): () => void {
-  if (typeof window.requestIdleCallback === 'function') {
-    const id = window.requestIdleCallback(fn, { timeout: 2000 });
-    return () => window.cancelIdleCallback(id);
-  }
-  const id = setTimeout(fn, 200);
-  return () => clearTimeout(id);
-}
-
 function useRunnerStatus(language: Language): RunnerStatus {
   const runner = getRunner(language);
   return useSyncExternalStore(runner.subscribe, runner.getStatus, runner.getStatus);
@@ -59,7 +50,7 @@ function oopsLine(summary: RunSummary): string {
   return 'Not quite. Open a red test to compare what you returned with what was expected.';
 }
 
-/** `problemButton` is off on the challenge step, where the text rail already shows the problem. */
+/** `problemButton` is off on the phone challenge step, where the text above the pane already shows the problem. */
 export function Sandbox({ lesson, problemButton = true }: { lesson: Lesson; problemButton?: boolean }) {
   // Remount per lesson so every piece of local state starts clean.
   return <SandboxInner key={lesson.slug} lesson={lesson} problemButton={problemButton} />;
@@ -97,13 +88,12 @@ function SandboxInner({ lesson, problemButton }: { lesson: Lesson; problemButton
   const progress = useEasedProgress(pyStatus);
 
   // ---------- warm-up (SPEC 4.3) ----------
-  useEffect(() => {
-    void getRunner('typescript').warm().catch(() => {});
-    if (useStore.getState().prefs.language === 'python') return idle(() => void getRunner('python').warm().catch(() => {}));
-  }, []);
-  useEffect(() => {
-    if (language === 'python' && getRunner('python').getStatus().state === 'idle') void getRunner('python').warm().catch(() => {});
-  }, [language]);
+  // Lazy: nothing loads when the sandbox mounts. The runtime for the selected language starts on
+  // the first focus of the editor, or on Run (run() warms too), whichever comes first.
+  const warmOnFocus = () => {
+    const runner = getRunner(language);
+    if (runner.getStatus().state === 'idle') void runner.warm().catch(() => {});
+  };
 
   // ---------- drafts, debounced 500ms ----------
   const timers = useRef<Partial<Record<Language, ReturnType<typeof setTimeout>>>>({});
@@ -265,7 +255,13 @@ function SandboxInner({ lesson, problemButton }: { lesson: Lesson; problemButton
       )}
 
       {/* Editor */}
-      <div id="sandbox-editor" role="tabpanel" aria-labelledby={`sandbox-tab-${language}`} className="pixel-corners border-2 border-line bg-bg-1">
+      <div
+        id="sandbox-editor"
+        role="tabpanel"
+        aria-labelledby={`sandbox-tab-${language}`}
+        className="pixel-corners border-2 border-line bg-bg-1"
+        onFocus={warmOnFocus}
+      >
         {viewingSolution && (
           <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-line bg-bg-2 px-3 py-2">
             <p className="label text-xs">Reference solution (read only)</p>

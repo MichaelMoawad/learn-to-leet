@@ -131,6 +131,30 @@ html[data-motion='reduced'] .glow-cyan {
   padding-bottom: calc(12px + env(safe-area-inset-bottom));
 }
 
+/* Desktop text rail: fade the bottom edge while there is more text below. Scroll driven, so it
+   is off when nothing overflows, at the end of the scroll, and in browsers without support. */
+@property --ltl-fade {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+@keyframes ltl-scroll-fade {
+  from,
+  92% {
+    --ltl-fade: 40px;
+  }
+  to {
+    --ltl-fade: 0px;
+  }
+}
+@supports (animation-timeline: scroll()) {
+  .scroll-fade {
+    mask-image: linear-gradient(to bottom, #000 calc(100% - var(--ltl-fade)), transparent);
+    animation: ltl-scroll-fade linear both;
+    animation-timeline: scroll(self);
+  }
+}
+
 /* Reduced motion (SPEC 5.1): nothing moves, glows or pulses. */
 html[data-motion='reduced'] *,
 html[data-motion='reduced'] *::before,

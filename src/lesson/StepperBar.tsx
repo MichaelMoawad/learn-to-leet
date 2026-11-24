@@ -22,7 +22,7 @@ export function StepperBar({
       aria-label="Lesson steps"
       className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t-2 border-line bg-bg-0/95 pt-3 backdrop-blur-sm"
     >
-      <div className="mx-auto flex max-w-[1440px] items-center gap-3 px-4 sm:gap-4 sm:px-6">
+      <div className="mx-auto flex max-w-[1920px] items-center gap-3 px-4 sm:gap-4 sm:px-6">
         <Button3D variant="ghost" size="md" onClick={() => onGo(index - 1)} disabled={index === 0} aria-label="Previous step">
           Back
         </Button3D>

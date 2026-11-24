@@ -62,14 +62,24 @@ learn-to-leet/
 - `/learn/:slug?step=N` Lesson. `N` is 1-based and kept in sync with `history.replaceState`.
 - `/dev/visuals` Gallery of every structure with sample scenes and a step scrubber. Dev builds only.
 
-Lesson page, desktop (1024px and up): header (logo, "module / lesson n of m", chips for difficulty, minutes and steps, course drawer button, reduced-motion toggle), then two columns. Left is a 400px text rail (step counter, title, body, Leet bubble). Right is the pane with two tabs, `VISUAL` and `CODE`. A fixed bottom bar holds Back, one clickable progress segment per step, "STEP 3 / 9", and Next. On the last step Next becomes "Next lesson", or "All lessons" (back to Home) when the next lesson has no file yet.
+Lesson page, desktop (1280px and up): header (logo, "module / lesson n of m", chips for difficulty, minutes and steps, course drawer button, reduced-motion toggle), then three columns that fill the viewport between the header and the bottom bar, inside a 1920px max width. There are no pane tabs on desktop.
 
-Below 1024px the layout stacks: pane first (visual capped at 46vh), text under it, stepper bar fixed to the bottom with safe-area padding. On the challenge step the text goes above the pane.
+- Left: the text rail (step counter, title, body, Leet bubble, "You'll learn" on step 1, `ProblemCard` on the challenge step), `clamp(300px, 21vw, 340px)` wide, scrolling on its own with a fade at the bottom edge while more text is below.
+- Centre: the visual, the hero of the page. Full column height and all the width that is left (464px at 1280, about 620px at 1440, about 1000px at 1920), so the floor runs edge to edge with the HUD tiles across the top, Replay and Pause top right and the legend bottom left. Its fit never changes between steps.
+- Right: the sandbox, `clamp(420px, 25vw, 480px)` wide, always visible on every step, scrolling on its own.
+
+A fixed bottom bar holds Back, one clickable progress segment per step, "STEP 3 / 9", and Next. On the last step Next becomes "Next lesson", or "All lessons" (back to Home) when the next lesson has no file yet.
+
+From 1024px to 1279px three columns would leave the visual only 210px (at 1024) to 460px wide, so this range keeps two columns split 11 to 9: the text rail on top of the left column and the visual below it, the sandbox on the right. The visual's height is fixed per lesson (the lesson's scene at scale 0.85 plus its HUD, legend and caption), and the text rail takes the rest of the column but never less than 200px, scrolling on its own.
+
+Below 1024px the layout stacks: `VISUAL` and `CODE` tabs, the pane (visual capped at 46vh), text under it, stepper bar fixed to the bottom with safe-area padding. On the challenge step the text goes above the pane. Below 1024px the sandbox column would be under 400px wide; 900px was checked and is too tight.
+
+The sandbox mounts once per lesson at page level, whatever the width. Steps, tab switches and crossing the breakpoint never remount it, so editor contents, test results, the selected language and hint state survive; on phones the inactive tab is hidden with CSS. Opening another lesson resets it.
 
 Behaviour:
 
 - Left and Right arrow keys change step unless focus is inside the editor.
-- The `CODE` tab is available on every step. Arriving on the challenge step switches to it automatically. On the challenge step the text rail shows the step body followed by `ProblemCard` (statement, examples, constraints). On other steps the sandbox header has a "Problem" button that opens the same card.
+- On phones the `CODE` tab is available on every step, and arriving on the challenge step switches to it automatically. On desktop the sandbox is always on screen. On the challenge step the text rail shows the step body followed by `ProblemCard` (statement, examples, constraints). On other steps the sandbox header has a "Problem" button that opens the same card. On desktop the button also shows on the challenge step, because the card in the text rail starts below the fold there.
 - Steps are never gated. Reaching the recap marks the lesson completed. Passing all tests marks it solved for that language.
 - "You'll learn" shows under the body on step 1 and as a ticked list on the recap. The recap also shows a "Coming up" line naming the next lesson.
 - Store shape (`localStorage` key `ltl:v1`): `progress[slug] = { step, completed, solved: { python?, typescript? } }`, `drafts[slug][language] = code`, `prefs = { language, motion: 'auto' | 'reduced' | 'full' }`. Drafts save on a 500ms debounce.
@@ -607,7 +617,7 @@ Depth order always follows the target step, so blocks re-sort at the start of a 
 
 ### 4.1 UI
 
-`<Sandbox lesson={Lesson} />`, shown in the `CODE` tab. Top row: language tabs (`Python`, `JS / TS`), a Problem button, Reset. Then the editor, then Run (primary `Button3D`, also Cmd/Ctrl+Enter), Hint, and Show solution. Then the test list.
+`<Sandbox lesson={Lesson} />`, in the right column on desktop and the `CODE` tab on phones (section 1). Top row: language tabs (`Python`, `JS / TS`), a Problem button, Reset. Then the editor, then Run (primary `Button3D`, also Cmd/Ctrl+Enter), Hint, and Show solution. Then the test list.
 
 - Each test row shows a pixel tick, cross or clock, the name and the time taken. Expanding it shows the arguments, expected value, returned value, captured stdout and any error. The header reads "4 / 6 passed".
 - While Pyodide is loading, Run shows "Loading Python" with a pixel progress bar. This happens once per visit.
@@ -652,7 +662,7 @@ Workers only execute and serialise. The pass or fail decision is made once, on t
 
 - The Python worker loads Pyodide by URL import, which keeps it out of the bundle: `const { loadPyodide } = await import(/* @vite-ignore */ PYODIDE_URL + 'pyodide.mjs')` then `loadPyodide({ indexURL: PYODIDE_URL })`, with `PYODIDE_URL = 'https://cdn.jsdelivr.net/pyodide/v314.0.8/full/'` defined once in `sandbox/workers/pyodideUrl.ts`. Verified reachable with CORS on 2026-11-23. The `pyodide` npm package is a dev dependency at the same version, for types and for `check-content`.
 - No extra packages. Standard library only.
-- When it loads: `warm()` is called for Python when the lesson page mounts if the preferred language is Python (inside `requestIdleCallback`), otherwise on first switch to the Python tab. The JS worker warms on mount, it is cheap.
+- When it loads: lazily. Nothing loads because the sandbox is on screen. `warm()` runs for the selected language on the first focus of the editor, or on the first Run (which warms before running), whichever comes first. So Pyodide loads only once the editor is focused or Run is pressed while Python is selected. The JS worker follows the same rule.
 - Load failure (offline, CDN blocked) shows an inline error with a Retry button and a note that JS / TS still works.
 
 ### 4.4 Harness
@@ -726,7 +736,7 @@ Type, all self-hosted:
 
 Sizes: 12, 14, 16 (body), 20, 28, 40, 56 (hero, 36 on phones). Body line height 1.6.
 
-Spacing is a 4px grid: 4, 8, 12, 16, 24, 32, 48, 64. Corners are square. Borders are 2px solid. Panels use a `pixel-corners` utility (a `clip-path` that notches each corner by 4px). Breakpoints: 640 and 1024.
+Spacing is a 4px grid: 4, 8, 12, 16, 24, 32, 48, 64. Corners are square. Borders are 2px solid. Panels use a `pixel-corners` utility (a `clip-path` that notches each corner by 4px). Breakpoints: 640, 1024 and 1280 (the lesson page's three-column layout).
 
 Page background: `--bg-0` with a 32px grid of 1px lines in `--line` at 35% opacity, fading out toward the bottom with a mask. No scanlines, no animated background.
 

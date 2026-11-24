@@ -54,10 +54,11 @@
   /* 4px spacing grid: p-1 = 4px, p-2 = 8px, p-3 = 12px, p-4 = 16px, p-6 = 24px ... */
   --spacing: 4px;
 
-  /* Breakpoints: 640 and 1024. */
+  /* Breakpoints: 640, 1024 and 1280 (xl: the lesson page's three-column layout). */
   --breakpoint-*: initial;
   --breakpoint-sm: 640px;
   --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
 }
 
 :root {

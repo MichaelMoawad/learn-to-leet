@@ -7,6 +7,9 @@ const RECAP = twoSum.steps.findIndex((s) => s.kind === 'recap') + 1;
 
 const stepper = (page: Page) => page.getByRole('navigation', { name: 'Lesson steps' });
 
+/** Below 1024px the pane has VISUAL / CODE tabs; at 1024px and up the sandbox is always beside the text. */
+const hasPaneTabs = (page: Page) => (page.viewportSize()?.width ?? 0) < 1024;
+
 async function stepToChallenge(page: Page) {
   await page.goto('/learn/two-sum');
   await expect(page.getByRole('heading', { level: 1, name: twoSum.steps[0].title })).toBeVisible();
@@ -19,8 +22,8 @@ async function stepToChallenge(page: Page) {
     await expect(page.getByRole('heading', { level: 1, name: twoSum.steps[n - 1].title })).toBeVisible();
   }
 
-  // Arriving on the challenge switches the pane to CODE.
-  await expect(page.getByRole('tab', { name: 'Code', exact: true })).toHaveAttribute('aria-selected', 'true');
+  // On phones, arriving on the challenge switches the pane to CODE. On desktop it is always visible.
+  if (hasPaneTabs(page)) await expect(page.getByRole('tab', { name: 'Code', exact: true })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('sandbox')).toBeVisible();
 }
 
@@ -84,21 +87,112 @@ test('Two Sum: stepping on reaches the recap', async ({ page }) => {
   await expect(page).toHaveURL(new RegExp(`[?&]step=${RECAP}\\b`));
   await expect(page.getByRole('heading', { level: 1, name: twoSum.steps[RECAP - 1].title })).toBeVisible();
   await expect(stepper(page).getByText(`Step ${RECAP} / ${STEPS}`)).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Visual', exact: true })).toHaveAttribute('aria-selected', 'true');
+  if (hasPaneTabs(page)) await expect(page.getByRole('tab', { name: 'Visual', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('visual')).toBeVisible();
   await expect(stepper(page).getByRole('button', { name: /Next lesson|All lessons/ })).toBeVisible();
 });
 
-test('Two Sum: the Problem button shows on other steps, not on the challenge', async ({ page }) => {
+test('Two Sum: the Problem button shows on other steps, and on the challenge only on desktop', async ({ page }) => {
   await page.goto(`/learn/two-sum?step=${CHALLENGE}`);
   await expect(page.getByTestId('sandbox')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Problem', exact: true })).toHaveCount(0);
+  if (hasPaneTabs(page)) {
+    await expect(page.getByRole('button', { name: 'Problem', exact: true })).toHaveCount(0);
+  } else {
+    const onChallenge = page.getByRole('button', { name: 'Problem', exact: true });
+    await onChallenge.click();
+    await expect(onChallenge).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByTestId('sandbox').getByRole('region', { name: 'Problem' })).toBeVisible();
+    await onChallenge.click();
+  }
 
   await page.getByRole('button', { name: 'Previous step' }).click();
-  await page.getByRole('tab', { name: 'Code', exact: true }).click();
+  if (hasPaneTabs(page)) await page.getByRole('tab', { name: 'Code', exact: true }).click();
   const problem = page.getByRole('button', { name: 'Problem', exact: true });
   await problem.click();
   await expect(problem).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByTestId('sandbox').getByRole('region', { name: 'Problem' })).toBeVisible();
+});
+
+// ---------- layout: the sandbox mounts once per lesson ----------
+
+const isPyodide = (url: string) => /pyodide|python\.worker/i.test(url);
+
+// 1280 is the three-column layout (text, visual, sandbox); 1100 is the two-column middle tier.
+for (const width of [1280, 1100]) test.describe(`Layout: desktop at ${width}px`, () => {
+  test.use({ viewport: { width, height: 800 } });
+  test.skip(({ isMobile }) => isMobile, 'desktop layout only');
+
+  test('Two Sum: the editor stays visible and keeps its text while stepping', async ({ page }) => {
+    const requests: string[] = [];
+    page.on('request', (r) => requests.push(r.url()));
+    const editor = page.getByTestId('code-editor');
+    const visual = page.getByTestId('visual');
+    const next = page.getByRole('button', { name: 'Next step' });
+    const back = page.getByRole('button', { name: 'Previous step' });
+    const onStep = async (n: number) => {
+      await expect(page).toHaveURL(new RegExp(`[?&]step=${n}\\b`));
+      await expect(visual).toHaveAttribute('data-step', String(n));
+      await expect(editor).toBeInViewport();
+      await expect(visual).toBeInViewport();
+    };
+
+    await page.goto('/learn/two-sum?step=1');
+    await expect(page.getByRole('tab', { name: 'Visual', exact: true })).toBeHidden();
+    await onStep(1);
+    await next.click();
+    await onStep(2);
+    // Nothing Python related loads just because the sandbox is on screen.
+    expect(requests.filter(isPyodide)).toEqual([]);
+
+    await page.getByRole('tab', { name: 'JS / TS', exact: true }).click();
+    const marker = '// kept across steps';
+    const content = editor.getByRole('textbox');
+    await content.click();
+    await page.keyboard.press('ControlOrMeta+End');
+    await page.keyboard.insertText(`\n${marker}`);
+    await expect(content).toContainText(marker);
+
+    for (const n of [3, 4, 5]) {
+      await next.click();
+      await onStep(n);
+    }
+    for (const n of [4, 3, 2]) {
+      await back.click();
+      await onStep(n);
+    }
+    await expect(content).toContainText(marker);
+    await expect(page.getByRole('tab', { name: 'JS / TS', exact: true })).toHaveAttribute('aria-selected', 'true');
+
+    for (let n = 3; n <= RECAP; n++) {
+      await next.click();
+      await onStep(n);
+    }
+    await expect(content).toContainText(marker);
+    expect(requests.filter(isPyodide)).toEqual([]);
+  });
+});
+
+test.describe('Layout: phone tabs', () => {
+  test.skip(({ isMobile }) => !isMobile, 'phone layout only');
+
+  test('Two Sum: editor text survives tab switches and steps', async ({ page }) => {
+    await page.goto('/learn/two-sum?step=2');
+    await page.getByRole('tab', { name: 'Code', exact: true }).click();
+    await page.getByRole('tab', { name: 'JS / TS', exact: true }).click();
+    const content = page.getByTestId('code-editor').getByRole('textbox');
+    const marker = '// kept across tabs';
+    await content.click();
+    await page.keyboard.press('ControlOrMeta+End');
+    await page.keyboard.insertText(`\n${marker}`);
+    await expect(content).toContainText(marker);
+
+    await page.getByRole('tab', { name: 'Visual', exact: true }).click();
+    await expect(page.getByTestId('sandbox')).toBeHidden();
+    await page.getByRole('button', { name: 'Next step' }).click();
+    await expect(page).toHaveURL(/[?&]step=3\b/);
+    await page.getByRole('tab', { name: 'Code', exact: true }).click();
+    await expect(content).toContainText(marker);
+  });
 });
 
 // ---------- visual engine (phase 3) ----------
@@ -116,14 +210,14 @@ function expectedBlocks(step: number): number {
 }
 
 async function checkVisualStep(page: Page, n: number, viewBox?: string | null) {
-  const visual = page.getByRole('tabpanel', { name: 'Visual' });
-  if (n === CHALLENGE) {
+  const visual = page.getByTestId('visual');
+  if (n === CHALLENGE && hasPaneTabs(page)) {
     await page.getByRole('tab', { name: 'Visual', exact: true }).click();
   }
   const svg = visual.getByTestId('scene-svg');
   await expect(svg).toBeVisible();
   await expect(visual.locator('[data-block]')).toHaveCount(expectedBlocks(n));
-  await expect(visual.getByTestId('visual')).toHaveAttribute('data-step', String(n));
+  await expect(visual).toHaveAttribute('data-step', String(n));
   const vb = await svg.getAttribute('viewBox');
   if (viewBox !== undefined) expect(vb).toBe(viewBox);
   return vb;

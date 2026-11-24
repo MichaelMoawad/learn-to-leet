@@ -244,7 +244,7 @@ export function createRunner(language: Language): Runner {
 }
 
 // One runner per language for the whole visit, so Pyodide loads once even if the
-// sandbox unmounts and remounts (tab switches, lesson changes).
+// sandbox remounts when the lesson changes.
 const shared: Partial<Record<Language, Runner>> = {};
 export function getRunner(language: Language): Runner {
   return (shared[language] ??= createRunner(language));
