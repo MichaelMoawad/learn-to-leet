@@ -1,15 +1,17 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from 'react';
 import type { Language, LeetPose, Lesson } from '../content/schema';
 import { useStore } from '../app/store';
 import { Button3D } from '../ui/Button3D';
 import { ProblemCard } from '../lesson/ProblemCard';
 import { LeetBubble } from '../mascot/LeetBubble';
 import { Markdown } from '../ui/Markdown';
-import { Editor } from './Editor';
 import { TestList } from './TestList';
 import { pendingResults } from './compare';
 import { getRunner, type RunnerStatus } from './runner';
 import type { ErrorInfo, RunSummary, TestResult } from './protocol';
+
+// CodeMirror is its own chunk: it starts loading when the sandbox mounts and never on the home page.
+const Editor = lazy(() => import('./Editor'));
 
 const LANGUAGES: { id: Language; label: string }[] = [
   { id: 'python', label: 'Python' },
@@ -28,7 +30,10 @@ function useRunnerStatus(language: Language): RunnerStatus {
   return useSyncExternalStore(runner.subscribe, runner.getStatus, runner.getStatus);
 }
 
-/** Real load progress jumps in big stages, so ease towards 90% while loading to show movement. */
+/**
+ * Real load progress jumps in big stages, so ease towards 90% while loading to show movement.
+ * The 10s time constant keeps the bar honest on slow links, where the download takes 30s or more.
+ */
 function useEasedProgress(status: RunnerStatus): number {
   const loading = status.state === 'loading';
   const [creep, setCreep] = useState(0);
@@ -38,7 +43,7 @@ function useEasedProgress(status: RunnerStatus): number {
       return;
     }
     const start = performance.now();
-    const id = setInterval(() => setCreep(0.9 * (1 - Math.exp(-(performance.now() - start) / 3500))), 150);
+    const id = setInterval(() => setCreep(0.9 * (1 - Math.exp(-(performance.now() - start) / 10000))), 150);
     return () => clearInterval(id);
   }, [loading]);
   return loading ? Math.max(status.progress, creep) : status.progress;
@@ -198,7 +203,7 @@ function SandboxInner({ lesson, problemButton }: { lesson: Lesson; problemButton
                 aria-controls="sandbox-editor"
                 tabIndex={selected ? 0 : -1}
                 onClick={() => setLanguage(l.id)}
-                className={`h-9 border-2 px-4 font-label text-xs tracking-[0.12em] uppercase ${
+                className={`h-9 border-2 px-4 font-label text-xs max-lg:h-10 tracking-[0.12em] uppercase ${
                   selected ? 'border-cyan bg-bg-2 text-cyan' : 'border-line bg-bg-1 text-text-dim hover:text-text'
                 }`}
               >
@@ -270,6 +275,7 @@ function SandboxInner({ lesson, problemButton }: { lesson: Lesson; problemButton
             </Button3D>
           </div>
         )}
+        <Suspense fallback={<EditorFallback code={viewingSolution ? challenge.solution[language] : code[language]} />}>
         <Editor
           key={`${language}-${view}`}
           language={language}
@@ -277,13 +283,26 @@ function SandboxInner({ lesson, problemButton }: { lesson: Lesson; problemButton
           onChange={viewingSolution ? undefined : onChange}
           onRun={() => void run()}
           readOnly={viewingSolution}
+          describedBy="sandbox-editor-keys"
           label={viewingSolution ? 'Reference solution' : `Your ${language === 'python' ? 'Python' : 'JS / TS'} code`}
         />
+        </Suspense>
       </div>
 
       {/* Actions */}
       <div className="flex flex-wrap items-center gap-3">
-        <Button3D variant="primary" size="md" type="button" onClick={() => void run()} disabled={running || pyLoading || pyFailed || viewingSolution} data-testid="run-button" aria-busy={running || pyLoading}>
+        {/* Busy states use aria-disabled, not disabled, so keyboard focus stays on Run through a run.
+            While Python loads, Run stays live: pressing it queues the run until the runtime is ready. */}
+        <Button3D
+          variant="primary"
+          size="md"
+          type="button"
+          onClick={() => void run()}
+          disabled={pyFailed || viewingSolution}
+          aria-disabled={running || undefined}
+          data-testid="run-button"
+          aria-busy={running || pyLoading}
+        >
           {pyLoading ? (
             <span className="flex items-center gap-2">
               Loading Python
@@ -299,7 +318,7 @@ function SandboxInner({ lesson, problemButton }: { lesson: Lesson; problemButton
             'Run'
           )}
         </Button3D>
-        <Button3D variant="secondary" size="md" type="button" onClick={showHint} disabled={allHintsShown}>
+        <Button3D variant="secondary" size="md" type="button" onClick={() => !allHintsShown && showHint()} aria-disabled={allHintsShown || undefined}>
           {hintsShown === 0 ? 'Hint' : allHintsShown ? 'No more hints' : `Hint ${hintsShown + 1} of ${challenge.hints.length}`}
         </Button3D>
         {!viewingSolution && (
@@ -307,8 +326,17 @@ function SandboxInner({ lesson, problemButton }: { lesson: Lesson; problemButton
             Show solution
           </Button3D>
         )}
-        <span className="hidden font-mono text-xs text-text-dim sm:inline">{isMac ? '⌘' : 'Ctrl'} + Enter runs</span>
+        <span id="sandbox-editor-keys" className="hidden font-mono text-xs text-text-dim sm:inline">
+          {isMac ? '⌘' : 'Ctrl'} + Enter runs. Esc then Tab leaves the editor.
+        </span>
       </div>
+
+      {pyLoading && (
+        <p className="text-xs text-text-dim" role="status" data-testid="python-loading">
+          Downloading Python for the first run (about 6 MB, once per visit).{' '}
+          {running ? 'Your code runs as soon as it is ready.' : 'Run works as soon as it is ready.'}
+        </p>
+      )}
 
       {pyFailed && (
         <div className="pixel-corners flex flex-wrap items-center gap-3 border-2 border-red bg-bg-1 p-3" role="alert" data-testid="python-load-error">
@@ -349,6 +377,15 @@ function SandboxInner({ lesson, problemButton }: { lesson: Lesson; problemButton
       )}
 
       <TestList results={results[language]} challenge={challenge} language={language} />
+    </div>
+  );
+}
+
+/** Same footprint as the editor while its chunk loads, so nothing jumps when it arrives. */
+function EditorFallback({ code }: { code: string }) {
+  return (
+    <div aria-busy="true" aria-label="Loading the code editor" className="min-h-[240px] px-4 py-3">
+      <pre className="font-mono text-sm leading-[1.6] whitespace-pre-wrap text-text-dim">{code}</pre>
     </div>
   );
 }

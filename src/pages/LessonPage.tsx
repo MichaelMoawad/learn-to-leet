@@ -13,12 +13,18 @@ import { Button3D } from '../ui/Button3D';
 import { Panel } from '../ui/Panel';
 import { clientNav } from '../app/nav';
 import NotFound from './NotFound';
+import { MotionRoot } from '../app/MotionRoot';
 import { isEditableTarget, stepFromSearch } from '../lesson/keys';
 
 export default function LessonPage() {
   const { slug = '' } = useParams();
   const lesson = getLesson(slug);
-  if (lesson) return <LessonView key={slug} lesson={lesson} />;
+  if (lesson)
+    return (
+      <MotionRoot>
+        <LessonView key={slug} lesson={lesson} />
+      </MotionRoot>
+    );
   if (allLessonSlugs.includes(slug)) return <ComingSoon slug={slug} />;
   return <NotFound />;
 }

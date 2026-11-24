@@ -24,7 +24,8 @@ export interface Runner {
 }
 
 export const DEFAULT_TIMEOUT_MS: Record<Language, number> = { python: 4000, typescript: 2000 };
-const LOAD_TIMEOUT_MS: Record<Language, number> = { python: 30000, typescript: 10000 };
+// Pyodide is about 6 MB: on a Fast 3G link (about 1.5 Mbps) the first download alone takes 35 to 45s.
+const LOAD_TIMEOUT_MS: Record<Language, number> = { python: 120000, typescript: 10000 };
 
 function spawnWorker(language: Language): Worker {
   return language === 'python'

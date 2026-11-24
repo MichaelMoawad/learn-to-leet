@@ -60,7 +60,7 @@ export function Tabs<T extends string>({
             aria-controls={tabPanelId(idPrefix, t.id)}
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(t.id)}
-            className={`h-9 border-2 px-4 font-label text-xs uppercase tracking-[0.12em] ${
+            className={`h-9 border-2 px-4 font-label max-lg:h-10 text-xs uppercase tracking-[0.12em] ${
               selected
                 ? 'border-cyan bg-bg-2 text-cyan'
                 : 'border-line bg-bg-1 text-text-dim hover:border-line-bright hover:text-text'

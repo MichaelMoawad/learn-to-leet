@@ -68,7 +68,7 @@ function Row({ result, challenge, args, language }: { result: TestResult; challe
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-bg-2"
+        className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-bg-2 focus-visible:outline-offset-[-4px] max-lg:min-h-10"
       >
         <PixelIcon glyph={s.glyph} className={`shrink-0 ${s.color}`} />
         <span className="sr-only">{s.label}:</span>

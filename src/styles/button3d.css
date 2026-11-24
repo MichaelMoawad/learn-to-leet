@@ -144,3 +144,13 @@ html[data-motion='reduced'] .btn3d-front,
 html[data-motion='reduced'] .btn3d-shadow {
   transition: none !important;
 }
+
+/* Below the 1024px layout (phones and tablets) every button gets a hit area of at least 40px tall.
+   An invisible layer grows the target up and down; the drawn button keeps its size. */
+@media (max-width: 1023.98px) {
+  .btn3d::after {
+    content: '';
+    position: absolute;
+    inset: calc(min(0px, (var(--btn-h) - 40px) / 2)) 0;
+  }
+}

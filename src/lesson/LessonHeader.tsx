@@ -9,7 +9,7 @@ export function LessonHeader({ lesson, onOpenCourse }: { lesson: Lesson; onOpenC
   return (
     <header className="border-b-2 border-line bg-bg-0/90">
       <div className="mx-auto flex max-w-[1920px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-6">
-        <Link to="/" className="glow-cyan font-display text-base leading-none font-bold whitespace-nowrap text-text sm:text-lg">
+        <Link to="/" className="glow-cyan font-display text-base leading-none font-bold whitespace-nowrap text-text max-lg:inline-flex max-lg:min-h-10 max-lg:items-center sm:text-lg">
           Learn to Leet
         </Link>
         <p className="order-last w-full min-w-0 truncate text-sm text-text-dim lg:order-none lg:w-auto">
@@ -30,7 +30,7 @@ export function LessonHeader({ lesson, onOpenCourse }: { lesson: Lesson; onOpenC
             type="button"
             onClick={onOpenCourse}
             aria-haspopup="dialog"
-            className="h-8 border-2 border-line bg-bg-1 px-2 font-label sm:px-3 text-xs uppercase tracking-[0.12em] text-cyan hover:border-cyan"
+            className="h-8 border-2 border-line bg-bg-1 px-2 font-label text-xs tracking-[0.12em] text-cyan uppercase hover:border-cyan max-lg:h-10 sm:px-3"
           >
             Course
           </button>

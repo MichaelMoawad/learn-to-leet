@@ -38,6 +38,10 @@ function desiredVisualHeight(scenes: Scene[]): number {
  * - Below 1024px: VISUAL / CODE tabs over the pane, step text under it (above it on the
  *   challenge). The inactive panel is hidden with CSS, never unmounted.
  *
+ * The two scrolling columns carry 8px of padding cancelled by an equal negative margin, so focus
+ * rings near their edges are not clipped and the layout is unchanged. The visual clips its
+ * content, so focus rings inside it are drawn inset (global.css, .ltl-pane-visual).
+ *
  * The left wrapper is `display: contents` on phones and at 1280px and up, so its children join the
  * stacked flex order or the three-column grid.
  */
@@ -81,7 +85,7 @@ export function LessonPane({
       <div className="max-lg:contents lg:flex lg:min-h-0 lg:flex-col lg:gap-3 xl:contents">
         <div
           ref={textRef}
-          className={`min-w-0 ${isChallenge ? 'order-0 max-lg:mb-3' : 'order-4 max-lg:mt-3'} scroll-fade lg:order-none lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2 xl:col-start-1 xl:row-start-1`}
+          className={`min-w-0 ${isChallenge ? 'order-0 max-lg:mb-3' : 'order-4 max-lg:mt-3'} scroll-fade lg:order-none lg:-m-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:p-2 lg:pr-4 xl:col-start-1 xl:row-start-1`}
         >
           {text}
         </div>
@@ -90,12 +94,12 @@ export function LessonPane({
           {...panel('visual')}
           inert={visualHidden}
           style={{ '--visual-h': `${visualH}px` } as CSSProperties}
-          className={`order-2 h-[46vh] min-h-[260px] overflow-hidden lg:order-none lg:h-[clamp(300px,var(--visual-h),calc(100%-212px))] lg:min-h-0 lg:flex-none xl:col-start-2 xl:row-start-1 xl:h-auto ${hideVisual}`}
+          className={`ltl-pane-visual order-2 h-[46vh] min-h-[260px] overflow-hidden lg:order-none lg:h-[clamp(300px,var(--visual-h),calc(100%-212px))] lg:min-h-0 lg:flex-none xl:col-start-2 xl:row-start-1 xl:h-auto ${hideVisual}`}
         >
           <Visual scenes={scenes} index={index} />
         </div>
       </div>
-      <div {...panel('code')} className={`order-3 min-w-0 lg:order-none lg:min-h-0 lg:overflow-y-auto lg:pr-1 xl:col-start-3 xl:row-start-1 ${hideCode}`}>
+      <div {...panel('code')} className={`order-3 min-w-0 lg:order-none lg:-m-2 lg:min-h-0 lg:overflow-y-auto lg:p-2 lg:pr-3 xl:col-start-3 xl:row-start-1 ${hideCode}`}>
         <Sandbox lesson={lesson} problemButton={wide || !isChallenge} />
       </div>
     </main>

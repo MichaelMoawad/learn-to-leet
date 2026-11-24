@@ -32,7 +32,7 @@ export function CourseDrawer({ open, onClose, current }: { open: boolean; onClos
           <button
             type="button"
             onClick={onClose}
-            className="h-8 border-2 border-line px-3 font-label text-xs uppercase tracking-[0.12em] text-text-dim hover:border-cyan hover:text-cyan"
+            className="h-8 border-2 border-line px-3 font-label max-lg:h-10 text-xs uppercase tracking-[0.12em] text-text-dim hover:border-cyan hover:text-cyan"
           >
             Close
           </button>
@@ -60,7 +60,7 @@ export function CourseDrawer({ open, onClose, current }: { open: boolean; onClos
                         to={`/learn/${slug}`}
                         onClick={onClose}
                         aria-current={isCurrent ? 'page' : undefined}
-                        className={`flex items-center justify-between gap-2 border-2 px-2 py-1.5 text-sm ${
+                        className={`flex items-center justify-between gap-2 border-2 px-2 py-1.5 text-sm max-lg:min-h-10 ${
                           isCurrent ? 'border-cyan bg-bg-2 text-text' : 'border-transparent text-text hover:border-line'
                         }`}
                       >

@@ -22,7 +22,7 @@ export function ProgressSegments({
               aria-label={`Step ${i + 1}: ${label}`}
               aria-current={state === 'current' ? 'step' : undefined}
               data-state={state}
-              className="group block w-full py-2"
+              className="group block w-full py-2 max-lg:py-4"
             >
               <span
                 className={`block h-2 border-2 ${

@@ -42,7 +42,7 @@ export default function Home() {
             {startWith && (
               <div className="mt-8 flex flex-wrap items-center gap-4">
                 <Button3D href={startHref} size="lg" onClick={clientNav(navigate, startHref)}>
-                  {started ? 'Continue' : 'Start'}
+                  {started ? 'Continue learning' : 'Start learning'}
                 </Button3D>
                 <span className="text-sm text-text-dim">
                   {started ? 'Pick up with ' : 'First up: '}
@@ -76,11 +76,13 @@ export default function Home() {
       </main>
 
       <footer className="mx-auto max-w-6xl border-t-2 border-line px-4 py-8 text-sm text-text-dim sm:px-8">
-        Format inspired by{' '}
-        <a href="https://designed-to-scale.vercel.app" className="text-cyan underline underline-offset-4" target="_blank" rel="noreferrer">
-          Designed to Scale
-        </a>
-        . Problems are written in our own words and reference LeetCode by number.
+        <p>
+          Format inspired by{' '}
+          <a href="https://designed-to-scale.vercel.app" className="text-cyan underline underline-offset-4" target="_blank" rel="noreferrer">
+            Designed to Scale
+          </a>{' '}
+          by @DilumSanjaya. Problems are written in our own words and reference LeetCode by number.
+        </p>
       </footer>
     </div>
   );

@@ -689,7 +689,7 @@ Both languages: stdout is capped at 10 KB per test, and the prelude classes are 
 
 Workers run user code synchronously, so the watchdog lives in `runner.ts`. It starts a timer on every `test-start` (`challenge.timeoutMs`, default 2000ms for JS and 4000ms for Python). If the timer fires, the runner calls `worker.terminate()`, marks that test `timeout` and the rest `skipped`, then spawns and warms a new worker in the background. Pyodide re-init after a kill is served from cache and takes a few seconds, during which Run shows the loading state.
 
-Terminating the worker is chosen over Pyodide's `SharedArrayBuffer` interrupt because it needs no cross-origin isolation headers and behaves the same for both languages. Pyodide load itself has a 30s timeout.
+Terminating the worker is chosen over Pyodide's `SharedArrayBuffer` interrupt because it needs no cross-origin isolation headers and behaves the same for both languages. Pyodide load itself has a 120s timeout (raised from 30s in phase 5A: the first download takes 35 to 45s on a Fast 3G link).
 
 ### 4.6 `npm run check-content [slug]`
 

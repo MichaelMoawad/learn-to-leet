@@ -46,6 +46,7 @@ export function Editor({
   onRun,
   readOnly = false,
   label,
+  describedBy,
 }: {
   value: string;
   language: Language;
@@ -53,6 +54,8 @@ export function Editor({
   onRun?: () => void;
   readOnly?: boolean;
   label: string;
+  /** Id of the element that explains the editor keys (Escape then Tab leaves, Mod+Enter runs). */
+  describedBy?: string;
 }) {
   // Keep the latest callback in a ref so the extensions never have to be rebuilt.
   const runRef = useRef(onRun);
@@ -60,7 +63,15 @@ export function Editor({
 
   // Mod+Enter is caught in the capture phase, before CodeMirror sees it: on Android Chrome
   // CodeMirror re-dispatches Enter without its modifiers, so a Mod-Enter keymap never fires.
+  const viewRef = useRef<EditorView | null>(null);
   const onKeyDownCapture = (event: KeyboardEvent<HTMLDivElement>) => {
+    // Tab indents inside the editor, so keyboard users leave it with Escape then Tab. CodeMirror
+    // only arms that when nothing else claims the Escape (closing autocomplete, which opens while
+    // typing, claims it), so arm it here, before CodeMirror sees the key, and let the key go on.
+    if (event.key === 'Escape') {
+      viewRef.current?.setTabFocusMode(2000);
+      return;
+    }
     if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
     event.preventDefault();
     event.stopPropagation();
@@ -73,9 +84,9 @@ export function Editor({
       theme,
       highlight,
       EditorView.lineWrapping,
-      EditorView.contentAttributes.of({ 'aria-label': label }),
+      EditorView.contentAttributes.of(describedBy ? { 'aria-label': label, 'aria-describedby': describedBy } : { 'aria-label': label }),
     ],
-    [language, label],
+    [language, label, describedBy],
   );
 
   return (
@@ -83,6 +94,9 @@ export function Editor({
     <CodeMirror
       value={value}
       onChange={onChange}
+      onCreateEditor={(view) => {
+        viewRef.current = view;
+      }}
       extensions={extensions}
       readOnly={readOnly}
       editable={!readOnly}
